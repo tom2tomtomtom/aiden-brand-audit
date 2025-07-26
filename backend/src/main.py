@@ -8,7 +8,7 @@ import sys
 import logging
 from datetime import datetime, timedelta
 
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
@@ -51,10 +51,21 @@ def create_app(config_name=None):
 
     # Load configuration
     config_class = get_config(config_name)
-    app.config.from_object(config_class)
-
+    config_instance = config_class()
+    
+    # Set configuration values from instance properties
+    app.config['SECRET_KEY'] = config_instance.SECRET_KEY
+    app.config['JWT_SECRET_KEY'] = config_instance.JWT_SECRET_KEY
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = config_instance.JWT_ACCESS_TOKEN_EXPIRES
+    app.config['SQLALCHEMY_DATABASE_URI'] = config_instance.SQLALCHEMY_DATABASE_URI
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config_instance.SQLALCHEMY_TRACK_MODIFICATIONS
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = config_instance.SQLALCHEMY_ENGINE_OPTIONS
+    app.config['DEBUG'] = config_instance.DEBUG if hasattr(config_instance, 'DEBUG') else False
+    app.config['RATELIMIT_STORAGE_URL'] = config_instance.RATELIMIT_STORAGE_URL
+    app.config['RATELIMIT_DEFAULT'] = config_instance.RATELIMIT_DEFAULT
+    
     # Initialize configuration
-    config_class.init_app(app)
+    config_instance.init_app(app)
 
     # Configure logging
     configure_logging(app)
@@ -96,12 +107,39 @@ def initialize_extensions(app):
     # Initialize Cache
     cache.init_app(app)
 
+    # Security headers middleware
+    @app.after_request
+    def after_request(response):
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # Content Security Policy
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https: data:; "
+            "connect-src 'self' https: wss:; "
+            "frame-ancestors 'none';"
+        )
+        response.headers['Content-Security-Policy'] = csp
+        
+        # Remove server information
+        response.headers.pop('Server', None)
+        
+        return response
+
     # CORS with secure configuration
     CORS(
         app,
         origins=["*"],  # Allow all origins for now to fix deployment
         supports_credentials=True,
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "ngrok-skip-browser-warning"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     )
 

@@ -21,8 +21,6 @@ import {
   ExternalLink,
   Activity,
   Eye,
-  Search,
-  ChartBar
 } from 'lucide-react'
 
 const FullConsultingReport = ({ analysisResults }) => {

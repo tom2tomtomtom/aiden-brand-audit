@@ -16,38 +16,7 @@ const AnalyticsTest = lazy(() => import('./components/analytics/AnalyticsTest'))
 import useAnalysis from './hooks/useAnalysis'
 import usePerformanceOptimized from './hooks/usePerformanceOptimized'
 import useAuthStore from './store/useAuthStore'
-import { Button } from '@/components/ui/button.jsx'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
-import { Input } from '@/components/ui/input.jsx'
-import { Label } from '@/components/ui/label.jsx'
-import { Progress } from '@/components/ui/progress.jsx'
-import { Badge } from '@/components/ui/badge.jsx'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
-import {
-  Search,
-  Upload,
-  FileImage,
-  Palette,
-  Type,
-  BarChart3,
-  FileText,
-  Download,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Sparkles,
-  TrendingUp,
-  Target,
-  Zap,
-  Brain,
-  Rocket,
-  Star,
-  ArrowRight,
-  Building2,
-  Globe
-} from 'lucide-react'
-import apiService from './services/api.js'
-import { Toaster, toast } from 'sonner'
+import { Toaster } from 'sonner'
 import './App.css'
 
 function App() {
@@ -134,12 +103,6 @@ function App() {
         return <ModernLanding onStartAnalysis={handleStartAnalysis} isLoading={isLoading} />
     }
   }
-
-
-
-
-
-
 
   return (
     <ErrorBoundary>

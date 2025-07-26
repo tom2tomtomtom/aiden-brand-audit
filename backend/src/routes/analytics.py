@@ -25,25 +25,25 @@ cache_service = IntelligentCacheService()
 # Validation schemas
 class AnalyticsQuerySchema(Schema):
     """Schema for analytics query parameters"""
-    brand_ids = fields.List(fields.String(), missing=[])
-    metrics = fields.List(fields.String(), missing=['brandHealth', 'sentiment', 'marketShare'])
-    timeframe = fields.String(missing='30d')
-    date_from = fields.DateTime(missing=None)
-    date_to = fields.DateTime(missing=None)
-    filters = fields.Dict(missing={})
+    brand_ids = fields.List(fields.String(), allow_none=True, load_default=[])
+    metrics = fields.List(fields.String(), load_default=['brandHealth', 'sentiment', 'marketShare'])
+    timeframe = fields.String(load_default='30d')
+    date_from = fields.DateTime(allow_none=True, load_default=None)
+    date_to = fields.DateTime(allow_none=True, load_default=None)
+    filters = fields.Dict(load_default={})
 
 class ComparisonQuerySchema(Schema):
     """Schema for brand comparison queries"""
     primary_brand_id = fields.String(required=True)
     comparison_brand_ids = fields.List(fields.String(), required=True)
-    metrics = fields.List(fields.String(), missing=['brandHealth', 'sentiment', 'marketShare'])
+    metrics = fields.List(fields.String(), load_default=['brandHealth', 'sentiment', 'marketShare'])
 
 class TrendAnalysisSchema(Schema):
     """Schema for trend analysis queries"""
     brand_id = fields.String(required=True)
     metrics = fields.List(fields.String(), required=True)
-    period = fields.String(missing='30d')
-    granularity = fields.String(missing='daily')
+    period = fields.String(load_default='30d')
+    granularity = fields.String(load_default='daily')
 
 @analytics_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -62,7 +62,7 @@ def get_dashboard_data():
         
         # Check cache first
         cache_key = f"dashboard_data_{current_user_id}_{brand_id}_{timeframe}"
-        cached_data = await cache_service.get(cache_key, 'analytics')
+        cached_data = cache_service.get(cache_key, 'analytics')
         
         if cached_data:
             return jsonify({"success": True, "data": cached_data}), 200
@@ -79,7 +79,7 @@ def get_dashboard_data():
         }
         
         # Cache the results
-        await cache_service.set(cache_key, dashboard_data, 'analytics', ttl=1800)  # 30 minutes
+        cache_service.set(cache_key, dashboard_data, 'analytics', ttl=1800)  # 30 minutes
         
         return jsonify({"success": True, "data": dashboard_data}), 200
         
@@ -111,7 +111,7 @@ def get_historical_data():
         
         # Check cache
         cache_key = f"historical_data_{current_user_id}_{brand_id}_{timeframe}_{'-'.join(metrics)}"
-        cached_data = await cache_service.get(cache_key, 'analytics')
+        cached_data = cache_service.get(cache_key, 'analytics')
         
         if cached_data:
             return jsonify({"success": True, "data": cached_data}), 200
@@ -120,7 +120,7 @@ def get_historical_data():
         historical_data = generate_historical_data(brand_id, timeframe, metrics)
         
         # Cache the results
-        await cache_service.set(cache_key, historical_data, 'analytics', ttl=3600)  # 1 hour
+        cache_service.set(cache_key, historical_data, 'analytics', ttl=3600)  # 1 hour
         
         return jsonify({"success": True, "data": historical_data}), 200
         
@@ -152,7 +152,7 @@ def get_comparison_data():
         
         # Check cache
         cache_key = f"comparison_data_{primary_brand_id}_{'-'.join(comparison_brand_ids)}_{'-'.join(metrics)}"
-        cached_data = await cache_service.get(cache_key, 'analytics')
+        cached_data = cache_service.get(cache_key, 'analytics')
         
         if cached_data:
             return jsonify({"success": True, "data": cached_data}), 200
@@ -161,7 +161,7 @@ def get_comparison_data():
         comparison_data = generate_comparison_data(primary_brand_id, comparison_brand_ids, metrics)
         
         # Cache the results
-        await cache_service.set(cache_key, comparison_data, 'analytics', ttl=1800)  # 30 minutes
+        cache_service.set(cache_key, comparison_data, 'analytics', ttl=1800)  # 30 minutes
         
         return jsonify({"success": True, "data": comparison_data}), 200
         
@@ -194,7 +194,7 @@ def get_trend_analysis():
         
         # Check cache
         cache_key = f"trend_analysis_{brand_id}_{'-'.join(metrics)}_{period}_{granularity}"
-        cached_data = await cache_service.get(cache_key, 'analytics')
+        cached_data = cache_service.get(cache_key, 'analytics')
         
         if cached_data:
             return jsonify({"success": True, "data": cached_data}), 200
@@ -203,7 +203,7 @@ def get_trend_analysis():
         trend_data = generate_trend_analysis(brand_id, metrics, period, granularity)
         
         # Cache the results
-        await cache_service.set(cache_key, trend_data, 'analytics', ttl=1800)  # 30 minutes
+        cache_service.set(cache_key, trend_data, 'analytics', ttl=1800)  # 30 minutes
         
         return jsonify({"success": True, "data": trend_data}), 200
         
@@ -228,7 +228,7 @@ def get_predictive_insights():
         
         # Check cache
         cache_key = f"predictions_{brand_id}_{forecast_period}_{confidence_threshold}"
-        cached_data = await cache_service.get(cache_key, 'analytics')
+        cached_data = cache_service.get(cache_key, 'analytics')
         
         if cached_data:
             return jsonify({"success": True, "data": cached_data}), 200
@@ -237,7 +237,7 @@ def get_predictive_insights():
         predictions = generate_predictive_insights(brand_id, forecast_period, confidence_threshold)
         
         # Cache the results
-        await cache_service.set(cache_key, predictions, 'analytics', ttl=3600)  # 1 hour
+        cache_service.set(cache_key, predictions, 'analytics', ttl=3600)  # 1 hour
         
         return jsonify({"success": True, "data": predictions}), 200
         

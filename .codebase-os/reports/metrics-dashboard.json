@@ -1,0 +1,61 @@
+{
+  "generated": "2025-07-26T02:42:00Z",
+  "project": "AI Brand Audit Tool",
+  "version": "1.0.0",
+  "overall_health_score": 74,
+  "metrics": {
+    "codebase_size": {
+      "total_files": 279,
+      "total_lines": 83059,
+      "source_files": 275,
+      "test_files": 45,
+      "config_files": 12
+    },
+    "complexity_metrics": {
+      "files_over_300_lines": 23,
+      "files_over_1000_lines": 4,
+      "largest_files": [
+        {
+          "file": "backend/src/services/competitor_analysis_service.py",
+          "lines": 5595,
+          "functions": 163,
+          "complexity_score": 95
+        },
+        {
+          "file": "backend/src/services/visual_analysis_service.py", 
+          "lines": 3618,
+          "functions": 76,
+          "complexity_score": 88
+        }
+      ]
+    },
+    "performance_metrics": {
+      "bundle_analysis": {
+        "main_bundle_size": 2096600,
+        "gzipped_size": 613470,
+        "css_bundle_size": 125110,
+        "performance_score": 35
+      }
+    },
+    "maintainability_metrics": {
+      "overall_score": 74,
+      "breakdown": {
+        "code_complexity": {"score": 60, "weight": 25},
+        "test_coverage": {"score": 85, "weight": 25},
+        "documentation": {"score": 90, "weight": 20},
+        "dependencies_health": {"score": 85, "weight": 15},
+        "performance": {"score": 50, "weight": 15}
+      }
+    }
+  },
+  "alerts": [
+    {
+      "level": "critical",
+      "message": "4 files exceed 1000 lines - immediate refactoring required"
+    },
+    {
+      "level": "critical", 
+      "message": "Bundle size 2MB+ severely impacts user experience"
+    }
+  ]
+}

@@ -72,7 +72,8 @@ class DatabaseOptimizationService:
         }
         
         # Update database URI with pool settings
-        if 'postgresql' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
+        db_uri = str(app.config.get('SQLALCHEMY_DATABASE_URI', ''))
+        if 'postgresql' in db_uri:
             # PostgreSQL specific optimizations
             pool_settings.update({
                 'connect_args': {

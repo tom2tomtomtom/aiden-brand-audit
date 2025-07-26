@@ -7,7 +7,27 @@ import os
 import secrets
 import logging
 from typing import Optional, Type, Dict, Any
-from .env_validator import validate_environment, ValidationError
+try:
+    from .config.env_validator import validate_environment, ValidationError
+except ImportError:
+    # Fallback for simpler validation without external validator
+    def validate_environment():
+        return {
+            "SECRET_KEY": os.environ.get("SECRET_KEY"),
+            "JWT_SECRET_KEY": os.environ.get("JWT_SECRET_KEY"),
+            "DATABASE_URL": os.environ.get("DATABASE_URL", "sqlite:///app.db"),
+            "FLASK_ENV": os.environ.get("FLASK_ENV", "production"),
+            "PORT": int(os.environ.get("PORT", 8080)),
+            "DEBUG": os.environ.get("DEBUG", "false").lower() == "true",
+            "ALLOWED_ORIGINS": os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+            "NEWS_API_KEY": os.environ.get("NEWS_API_KEY"),
+            "BRANDFETCH_API_KEY": os.environ.get("BRANDFETCH_API_KEY"),
+            "OPENCORPORATES_API_KEY": os.environ.get("OPENCORPORATES_API_KEY"),
+        }
+    
+    class ValidationError(Exception):
+        pass
 
 
 class Config:

@@ -566,7 +566,7 @@ def generate_professional_report():
             theme_enum = ReportTheme(theme)
 
             # Generate professional report
-            report_result = await presentation_service.generate_professional_report(
+            report_result = presentation_service.generate_professional_report(
                 brand_name=brand_name,
                 analysis_data=analysis_data,
                 template=template_enum,
