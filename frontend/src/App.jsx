@@ -1,14 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-import HistoricalAnalysis from './components/HistoricalAnalysis'
-import FullConsultingReport from './components/FullConsultingReport'
 import ModernLanding from './components/ModernLanding'
 import AnalysisProgress from './components/AnalysisProgress'
-import StrategicIntelligenceBriefing from './components/StrategicIntelligenceBriefing'
-import AdvancedAnalyticsDashboard from './components/analytics/AdvancedAnalyticsDashboard'
-import AnalyticsTest from './components/analytics/AnalyticsTest'
+import ErrorBoundary from './components/ErrorHandling/ErrorBoundary'
+import LoadingSpinner from './components/ui/loading-states'
+
+// Lazy load heavy components for better performance
+const HistoricalAnalysis = lazy(() => import('./components/HistoricalAnalysis'))
+const FullConsultingReport = lazy(() => import('./components/FullConsultingReport'))
+const StrategicIntelligenceBriefing = lazy(() => import('./components/StrategicIntelligenceBriefing'))
+const AdvancedAnalyticsDashboard = lazy(() => import('./components/analytics/AdvancedAnalyticsDashboard'))
+const AnalyticsTest = lazy(() => import('./components/analytics/AnalyticsTest'))
+
+// Custom hooks
+import useAnalysis from './hooks/useAnalysis'
+import usePerformanceOptimized from './hooks/usePerformanceOptimized'
 import useAuthStore from './store/useAuthStore'
-import useLoadingStore from './store/useLoadingStore'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Input } from '@/components/ui/input.jsx'
@@ -44,70 +51,54 @@ import { Toaster, toast } from 'sonner'
 import './App.css'
 
 function App() {
-  const { isLoading, setLoading } = useLoadingStore()
+  // Custom hooks for analysis management
+  const {
+    isLoading,
+    analysisId,
+    analysisResults,
+    analysisProgress,
+    analysisStatus,
+    startAnalysis,
+    getAnalysisResults,
+    resetAnalysis,
+  } = useAnalysis()
+
+  // Performance optimization
+  const { getPerformanceMetrics } = usePerformanceOptimized()
+
+  // Local state
   const [currentView, setCurrentView] = useState('landing') // 'landing', 'analyzing', 'results'
   const [brandQuery, setBrandQuery] = useState('')
-  const [analysisResults, setAnalysisResults] = useState(null)
-  const [analysisId, setAnalysisId] = useState(null)
-  const [analysisProgress, setAnalysisProgress] = useState(0)
-  const [analysisStatus, setAnalysisStatus] = useState('')
 
-  const handleStartAnalysis = async (brandName) => {
+  const handleStartAnalysis = useCallback(async (brandName) => {
     setBrandQuery(brandName)
-    setLoading(true)
     setCurrentView('analyzing')
-
-    try {
-      const response = await apiService.startAnalysis({
-        company_name: brandName,
-        analysis_options: {
-          brandPerception: true,
-          competitiveAnalysis: true,
-          visualAnalysis: true,  // NEW: Enable enhanced visual analysis with color extraction
-          pressCoverage: true,
-          socialSentiment: false
-        }
-      })
-      if (response.success) {
-        setAnalysisId(response.data.analysis_id)
-        toast.success('Analysis started! This will take 2-3 minutes.')
-      } else {
-        toast.error(response.message || 'Failed to start analysis')
-        setCurrentView('landing')
-      }
-    } catch (error) {
-      console.error('Analysis start error:', error)
-      toast.error('Failed to start analysis. Please try again.')
-      setCurrentView('landing')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAnalysisComplete = async () => {
-    try {
-      const response = await apiService.getAnalysisResults(analysisId)
-      if (response.success) {
-        setAnalysisResults(response.data)
-        setCurrentView('results')
-        toast.success('Analysis completed!')
-      } else {
-        toast.error('Failed to get analysis results')
-        setCurrentView('landing')
-      }
-    } catch (error) {
-      console.error('Error getting results:', error)
-      toast.error('Failed to get analysis results')
+    
+    const result = await startAnalysis(brandName)
+    
+    if (result.success) {
+      // Analysis started successfully, stay on analyzing view
+    } else {
+      // Error occurred, return to landing
       setCurrentView('landing')
     }
-  }
+  }, [startAnalysis])
 
-  const handleNewAnalysis = () => {
+  const handleAnalysisComplete = useCallback(async () => {
+    const result = await getAnalysisResults()
+    
+    if (result.success) {
+      setCurrentView('results')
+    } else {
+      setCurrentView('landing')
+    }
+  }, [getAnalysisResults])
+
+  const handleNewAnalysis = useCallback(() => {
     setCurrentView('landing')
-    setAnalysisResults(null)
-    setAnalysisId(null)
     setBrandQuery('')
-  }
+    resetAnalysis()
+  }, [resetAnalysis])
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -128,11 +119,13 @@ function App() {
         return (
           <div className="min-h-screen bg-gray-50 py-8">
             <div className="max-w-7xl mx-auto px-4">
-              <StrategicIntelligenceBriefing
-                analysisResults={analysisResults}
-                brandName={brandQuery}
-                onNewAnalysis={handleNewAnalysis}
-              />
+              <Suspense fallback={<LoadingSpinner />}>
+                <StrategicIntelligenceBriefing
+                  analysisResults={analysisResults}
+                  brandName={brandQuery}
+                  onNewAnalysis={handleNewAnalysis}
+                />
+              </Suspense>
             </div>
           </div>
         )
@@ -149,34 +142,50 @@ function App() {
 
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen">
-        <Toaster position="top-right" />
-        <Routes>
-          <Route path="/" element={renderCurrentView()} />
-          <Route path="/historical-analysis" element={<HistoricalAnalysis />} />
-          <Route path="/analytics" element={
-            <div className="min-h-screen bg-gray-50 py-8">
-              <div className="max-w-7xl mx-auto px-4">
-                <AdvancedAnalyticsDashboard
-                  analysisResults={analysisResults}
-                  brandName={brandQuery}
-                  historicalData={[]}
-                  competitorData={[]}
-                  onExport={(format, data) => console.log('Export:', format, data)}
-                  onRefresh={() => console.log('Refresh analytics')}
-                />
-              </div>
-            </div>
-          } />
-          <Route path="/analytics-test" element={
-            <div className="min-h-screen bg-gray-50">
-              <AnalyticsTest />
-            </div>
-          } />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <div className="min-h-screen">
+          <Toaster position="top-right" />
+          <Routes>
+            <Route path="/" element={renderCurrentView()} />
+            <Route path="/historical-analysis" element={
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <HistoricalAnalysis />
+                </Suspense>
+              </ErrorBoundary>
+            } />
+            <Route path="/analytics" element={
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <div className="min-h-screen bg-gray-50 py-8">
+                    <div className="max-w-7xl mx-auto px-4">
+                      <AdvancedAnalyticsDashboard
+                        analysisResults={analysisResults}
+                        brandName={brandQuery}
+                        historicalData={[]}
+                        competitorData={[]}
+                        onExport={(format, data) => console.log('Export:', format, data)}
+                        onRefresh={() => console.log('Refresh analytics')}
+                      />
+                    </div>
+                  </div>
+                </Suspense>
+              </ErrorBoundary>
+            } />
+            <Route path="/analytics-test" element={
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <div className="min-h-screen bg-gray-50">
+                    <AnalyticsTest />
+                  </div>
+                </Suspense>
+              </ErrorBoundary>
+            } />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

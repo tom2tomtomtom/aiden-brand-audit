@@ -18,17 +18,76 @@ import {
   Star,
   Rocket,
   Clock,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 
 const ModernLanding = ({ onStartAnalysis, isLoading }) => {
   const [brandQuery, setBrandQuery] = useState('')
+  const [inputError, setInputError] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
+
+  const validateBrandName = (name) => {
+    const trimmedName = name.trim()
+    
+    if (!trimmedName) {
+      return 'Please enter a brand name'
+    }
+    
+    if (trimmedName.length < 2) {
+      return 'Brand name must be at least 2 characters long'
+    }
+    
+    if (trimmedName.length > 100) {
+      return 'Brand name must be less than 100 characters'
+    }
+    
+    // Check for invalid characters (basic validation)
+    const invalidChars = /[<>{}[\]\\\/]/
+    if (invalidChars.test(trimmedName)) {
+      return 'Please remove special characters from the brand name'
+    }
+    
+    return null
+  }
+
+  const handleInputChange = (e) => {
+    const value = e.target.value
+    setBrandQuery(value)
+    
+    // Clear error when user starts typing
+    if (inputError) {
+      setInputError('')
+    }
+    
+    // Real-time validation for better UX
+    if (value.trim()) {
+      const error = validateBrandName(value)
+      if (error) {
+        setInputError(error)
+      }
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (brandQuery.trim()) {
-      onStartAnalysis(brandQuery.trim())
+    setIsValidating(true)
+    
+    const error = validateBrandName(brandQuery)
+    if (error) {
+      setInputError(error)
+      setIsValidating(false)
+      return
     }
+    
+    setInputError('')
+    onStartAnalysis(brandQuery.trim())
+    setIsValidating(false)
+  }
+
+  const handleExampleClick = (brand) => {
+    setBrandQuery(brand)
+    setInputError('')
   }
 
   const features = [
@@ -115,22 +174,39 @@ const ModernLanding = ({ onStartAnalysis, isLoading }) => {
                         type="text"
                         placeholder="e.g., Apple, Tesla, Nike, or your company name"
                         value={brandQuery}
-                        onChange={(e) => setBrandQuery(e.target.value)}
-                        className="pl-12 pr-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                        onChange={handleInputChange}
+                        className={`pl-12 pr-4 py-4 text-lg border-2 rounded-xl transition-colors ${
+                          inputError 
+                            ? 'border-red-300 focus:border-red-500' 
+                            : 'border-gray-200 focus:border-blue-500'
+                        }`}
                         required
+                        aria-invalid={!!inputError}
+                        aria-describedby={inputError ? "brand-name-error" : undefined}
                       />
+                      {inputError && (
+                        <div id="brand-name-error" className="text-red-600 text-sm mt-2 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-1" />
+                          {inputError}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
                   <Button 
                     type="submit" 
-                    disabled={isLoading || !brandQuery.trim()}
-                    className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    disabled={isLoading || isValidating || !brandQuery.trim() || !!inputError}
+                    className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                         Starting Analysis...
+                      </>
+                    ) : isValidating ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Validating...
                       </>
                     ) : (
                       <>
@@ -151,8 +227,10 @@ const ModernLanding = ({ onStartAnalysis, isLoading }) => {
                 {exampleBrands.map((brand) => (
                   <button
                     key={brand}
-                    onClick={() => setBrandQuery(brand)}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-blue-300 hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
+                    onClick={() => handleExampleClick(brand)}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-blue-300 hover:bg-blue-50 transition-colors duration-200 text-sm font-medium min-h-[44px]"
+                    type="button"
+                    aria-label={`Try ${brand} brand analysis`}
                   >
                     {brand}
                   </button>

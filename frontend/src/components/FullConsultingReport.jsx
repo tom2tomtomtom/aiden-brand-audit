@@ -27,10 +27,14 @@ import {
 
 const FullConsultingReport = ({ analysisResults }) => {
   const [activeTab, setActiveTab] = useState('executive')
-  
+
   // Get pre-parsed LLM sections from backend
   const llmSections = analysisResults?.parsed_sections || analysisResults?.llm_sections || {}
-  
+
+  // Common constants
+  const CONTENT_NOT_AVAILABLE = 'content not available'
+  const REPORT_DATE = new Date().toLocaleDateString()
+
   // Navigation structure aligned with professional brand audit framework
   const reportSections = [
     { id: 'executive', title: 'Executive Summary', icon: Lightbulb, pages: '1-2 pages' },
@@ -42,17 +46,9 @@ const FullConsultingReport = ({ analysisResults }) => {
     { id: 'insights', title: 'Key Insights & Recommendations', icon: Zap, pages: '2-3 pages' },
     { id: 'appendix', title: 'Appendix & Data Sources', icon: FileText, pages: 'Reference' }
   ]
-  
-  // Debug logging
-  console.log('FullConsultingReport received:', analysisResults)
-  console.log('LLM sections:', llmSections)
-  console.log('Number of sections:', Object.keys(llmSections).length)
-  console.log('Report sections for navigation:', reportSections)
-  console.log('Report sections length:', reportSections.length)
 
   const ExecutiveSummary = () => {
-    const executiveContent = llmSections.executive_summary || 'Executive summary content not available'
-    console.log('Executive content:', executiveContent.substring(0, 200))
+    const executiveContent = llmSections.executive_summary || `Executive summary ${CONTENT_NOT_AVAILABLE}`
     const insights = analysisResults?.actionable_insights || []
     const metrics = analysisResults?.key_metrics || {}
     
@@ -128,7 +124,7 @@ const FullConsultingReport = ({ analysisResults }) => {
   }
 
   const BrandHealthAssessment = () => {
-    const brandEquityContent = llmSections.brand_equity_assessment || 'Brand health assessment content not available'
+    const brandEquityContent = llmSections.brand_equity_assessment || `Brand health assessment ${CONTENT_NOT_AVAILABLE}`
     const brandPositioning = llmSections.brand_positioning_analysis || ''
     
     return (
@@ -261,7 +257,7 @@ const FullConsultingReport = ({ analysisResults }) => {
   }
 
   const CompetitiveLandscape = () => {
-    const competitiveContent = llmSections.competitive_intelligence || 'Competitive landscape analysis content not available'
+    const competitiveContent = llmSections.competitive_intelligence || `Competitive landscape analysis ${CONTENT_NOT_AVAILABLE}`
     
     return (
       <div className="prose prose-lg max-w-none space-y-8">
@@ -408,7 +404,7 @@ const FullConsultingReport = ({ analysisResults }) => {
   }
 
   const MarketContextTrends = () => {
-    const marketContent = llmSections.market_performance_and_dynamics || 'Market context and trends analysis content not available'
+    const marketContent = llmSections.market_performance_and_dynamics || `Market context and trends analysis ${CONTENT_NOT_AVAILABLE}`
     
     return (
       <div className="prose prose-lg max-w-none space-y-8">
@@ -538,7 +534,7 @@ const FullConsultingReport = ({ analysisResults }) => {
   }
 
   const DigitalIntelligence = () => {
-    const digitalContent = llmSections.digital_ecosystem_analysis || 'Digital competitive intelligence content not available'
+    const digitalContent = llmSections.digital_ecosystem_analysis || `Digital competitive intelligence ${CONTENT_NOT_AVAILABLE}`
     
     return (
       <div className="prose prose-lg max-w-none space-y-8">
@@ -558,7 +554,7 @@ const FullConsultingReport = ({ analysisResults }) => {
 
 
   const KeyInsightsRecommendations = () => {
-    const recommendationsContent = llmSections.strategic_recommendations || 'Key insights and recommendations content not available'
+    const recommendationsContent = llmSections.strategic_recommendations || `Key insights and recommendations ${CONTENT_NOT_AVAILABLE}`
     const implementationContent = llmSections.implementation_roadmap || ''
     
     return (
@@ -697,7 +693,6 @@ const FullConsultingReport = ({ analysisResults }) => {
           <div className="flex overflow-x-auto">
             {reportSections.map((section, index) => {
               const Icon = section.icon
-              // Navigation debug: console.log(`Rendering tab ${index + 1}:`, section.title, 'Active:', activeTab === section.id)
               return (
                 <button
                   key={section.id}

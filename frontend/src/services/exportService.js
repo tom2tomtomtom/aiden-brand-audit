@@ -5,7 +5,7 @@
 
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
-import * as XLSX from 'xlsx'
+// import * as XLSX from 'xlsx' // Temporarily disabled - not installed
 import html2canvas from 'html2canvas'
 
 class ExportService {
@@ -110,6 +110,10 @@ class ExportService {
     } = options
 
     try {
+      // Temporarily disabled - XLSX not installed
+      throw new Error('Excel export temporarily disabled - XLSX library not installed')
+      
+      /* XLSX functionality would go here when library is installed
       const workbook = XLSX.utils.book_new()
 
       // Summary Sheet
@@ -151,6 +155,7 @@ class ExportService {
       }
 
       return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      */
     } catch (error) {
       console.error('Excel export error:', error)
       throw new Error('Failed to generate Excel report')
