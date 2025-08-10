@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-push checks..."
+
+# Ensure we're not pushing to main directly (unless it's from CI)
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" = "main" ] && [ -z "$CI" ]; then
+  echo "❌ Direct push to main branch is not allowed. Please use a pull request."
+  exit 1
+fi
+
+# Run full test suite
+echo "🧪 Running full test suite..."
+npm run test:coverage
+
+# Check test coverage meets requirements
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed or coverage below threshold. Please fix tests before pushing."
+  exit 1
+fi
+
+# Run E2E tests if they exist
+if [ -d "e2e-tests" ] || [ -d "tests" ]; then
+  echo "🎭 Running integration tests..."
+  npm run test:integration
+  
+  if [ $? -ne 0 ]; then
+    echo "⚠️  Integration tests failed. Consider fixing them before pushing."
+    echo "Push will continue, but please address failing tests."
+  fi
+fi
+
+echo "✅ Pre-push checks completed!"

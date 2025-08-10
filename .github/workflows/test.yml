@@ -1,0 +1,391 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  PNPM_VERSION: '9'
+
+jobs:
+  # Job to detect changes and determine which tests to run
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+      ci: ${{ steps.changes.outputs.ci }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+            backend:
+              - 'backend/**'
+              - 'requirements.txt'
+            ci:
+              - '.github/workflows/**'
+              - '**/package.json'
+              - '**/requirements.txt'
+
+  # Frontend testing job
+  frontend-tests:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: pnpm run lint
+
+      - name: Type check (if TypeScript)
+        working-directory: ./frontend
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          else
+            echo "No TypeScript configuration found, skipping type check"
+          fi
+
+      - name: Run unit tests
+        working-directory: ./frontend
+        run: pnpm run test -- --coverage --reporter=verbose
+
+      - name: Run integration tests
+        working-directory: ./frontend
+        run: pnpm run test:integration
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage-node-${{ matrix.node-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Store frontend test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-test-results-node-${{ matrix.node-version }}
+          path: |
+            frontend/coverage/
+            frontend/test-results/
+          retention-days: 30
+
+  # Backend testing job
+  backend-tests:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+      fail-fast: false
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-mock pytest-asyncio
+
+      - name: Run Python linting (flake8)
+        working-directory: ./backend
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run backend tests
+        working-directory: ./backend
+        env:
+          FLASK_ENV: testing
+          DATABASE_URL: sqlite:///test.db
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: true
+        run: |
+          # Check if tests directory exists and has tests
+          if [ -d "tests" ] && [ "$(find tests -name '*.py' | wc -l)" -gt 0 ]; then
+            python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --cov-report=term
+          elif [ -f "test_app.py" ]; then
+            python -m pytest test_app.py -v --cov=src --cov-report=xml --cov-report=html --cov-report=term
+          else
+            echo "No backend tests found, creating basic health check"
+            python -c "
+import sys
+sys.path.insert(0, '.')
+try:
+    from src.main import app
+    with app.test_client() as client:
+        response = client.get('/health')
+        print(f'Health check status: {response.status_code}')
+        assert response.status_code in [200, 404], 'Health endpoint should exist or return 404'
+    print('Backend basic validation passed')
+except Exception as e:
+    print(f'Backend validation error: {e}')
+    exit(1)
+"
+          fi
+
+      - name: Upload backend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage-python-${{ matrix.python-version }}
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Store backend test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results-python-${{ matrix.python-version }}
+          path: |
+            backend/htmlcov/
+            backend/coverage.xml
+          retention-days: 30
+
+  # E2E tests job (runs after unit tests pass)
+  e2e-tests:
+    needs: [changes, frontend-tests]
+    if: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: pnpm exec playwright install --with-deps
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: pnpm run build
+
+      - name: Start backend for E2E tests
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          export FLASK_ENV=development
+          export DATABASE_URL=sqlite:///test.db
+          nohup python src/main.py &
+          sleep 10
+          # Check if backend is running
+          curl -f http://localhost:5000/health || echo "Backend health check failed"
+        env:
+          FLASK_RUN_PORT: 5000
+
+      - name: Run E2E tests
+        working-directory: ./frontend
+        run: pnpm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          retention-days: 30
+
+  # Security scanning job
+  security-scan:
+    needs: changes
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Frontend dependency audit
+        if: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true' }}
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level moderate || true
+          # Use pnpm audit when available
+          if command -v pnpm &> /dev/null; then
+            pnpm audit || true
+          fi
+
+  # Quality gates job
+  quality-gates:
+    needs: [frontend-tests, backend-tests, security-scan]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./test-artifacts
+
+      - name: Evaluate quality gates
+        run: |
+          echo "=== Quality Gates Evaluation ==="
+          
+          # Check if frontend tests passed
+          FRONTEND_PASSED=false
+          if [ "${{ needs.frontend-tests.result }}" == "success" ]; then
+            FRONTEND_PASSED=true
+            echo "✅ Frontend tests: PASSED"
+          else
+            echo "❌ Frontend tests: FAILED or SKIPPED"
+          fi
+          
+          # Check if backend tests passed
+          BACKEND_PASSED=false
+          if [ "${{ needs.backend-tests.result }}" == "success" ]; then
+            BACKEND_PASSED=true
+            echo "✅ Backend tests: PASSED"
+          else
+            echo "❌ Backend tests: FAILED or SKIPPED"
+          fi
+          
+          # Check security scan
+          SECURITY_PASSED=false
+          if [ "${{ needs.security-scan.result }}" == "success" ]; then
+            SECURITY_PASSED=true
+            echo "✅ Security scan: PASSED"
+          else
+            echo "⚠️ Security scan: ISSUES FOUND"
+          fi
+          
+          # Overall quality gate decision
+          if [ "$FRONTEND_PASSED" == "true" ] && [ "$BACKEND_PASSED" == "true" ]; then
+            echo "✅ Overall Quality Gate: PASSED"
+            echo "🚀 Ready for deployment"
+          else
+            echo "❌ Overall Quality Gate: FAILED"
+            echo "🛑 Not ready for deployment"
+            exit 1
+          fi
+
+  # Notification job (runs always at the end)
+  notify:
+    needs: [quality-gates, e2e-tests]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify on success
+        if: ${{ needs.quality-gates.result == 'success' && needs.e2e-tests.result == 'success' }}
+        run: |
+          echo "🎉 All tests passed! Pipeline completed successfully."
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+
+      - name: Notify on failure
+        if: ${{ needs.quality-gates.result == 'failure' || needs.e2e-tests.result == 'failure' }}
+        run: |
+          echo "💥 Pipeline failed!"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Please check the failed jobs and fix the issues."

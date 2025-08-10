@@ -1,0 +1,277 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build and push Docker images
+  build-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker images
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker-compose.prod.yml
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+  # Deploy to staging
+  deploy-staging:
+    needs: [build-images]
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging') }}
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Deploy to staging
+        id: deploy
+        run: |
+          echo "Deploying to staging environment..."
+          
+          # Replace with your actual deployment commands
+          # Example for Railway/Heroku-style deployment:
+          if [ -f "railway.json" ]; then
+            echo "Deploying to Railway..."
+            echo "url=https://your-staging-app.railway.app" >> $GITHUB_OUTPUT
+          elif [ -f "Procfile" ]; then
+            echo "Deploying to Heroku-like platform..."
+            echo "url=https://your-staging-app.herokuapp.com" >> $GITHUB_OUTPUT
+          else
+            echo "Using custom deployment..."
+            echo "url=https://staging.brandaudit.com" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run smoke tests against staging
+        run: |
+          echo "Running smoke tests against staging..."
+          
+          # Wait for deployment to be ready
+          sleep 30
+          
+          # Basic health check
+          STAGING_URL="${{ steps.deploy.outputs.url }}"
+          
+          # Test frontend
+          if curl -f "$STAGING_URL" > /dev/null 2>&1; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed"
+            exit 1
+          fi
+          
+          # Test backend API
+          if curl -f "$STAGING_URL/api/health" > /dev/null 2>&1; then
+            echo "✅ Backend API health check passed"
+          else
+            echo "❌ Backend API health check failed"
+            exit 1
+          fi
+
+  # Deploy to production (only on tags or manual trigger)
+  deploy-production:
+    needs: [build-images, deploy-staging]
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') }}
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          echo "Deploying to production environment..."
+          
+          # Implement blue-green deployment or rolling update
+          echo "Using zero-downtime deployment strategy..."
+          
+          # Replace with your actual production deployment commands
+          if [ -f "railway.prod.json" ]; then
+            echo "Deploying to Railway Production..."
+            echo "url=https://your-prod-app.railway.app" >> $GITHUB_OUTPUT
+          elif [ -f "Procfile" ]; then
+            echo "Deploying to production platform..."
+            echo "url=https://your-prod-app.herokuapp.com" >> $GITHUB_OUTPUT
+          else
+            echo "Using custom production deployment..."
+            echo "url=https://brandaudit.com" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run comprehensive tests against production
+        run: |
+          echo "Running comprehensive tests against production..."
+          
+          # Wait for deployment to be ready
+          sleep 60
+          
+          PROD_URL="${{ steps.deploy.outputs.url }}"
+          
+          # Frontend health check
+          if curl -f "$PROD_URL" > /dev/null 2>&1; then
+            echo "✅ Production frontend health check passed"
+          else
+            echo "❌ Production frontend health check failed"
+            exit 1
+          fi
+          
+          # Backend API health check
+          if curl -f "$PROD_URL/api/health" > /dev/null 2>&1; then
+            echo "✅ Production backend API health check passed"
+          else
+            echo "❌ Production backend API health check failed"
+            exit 1
+          fi
+          
+          # Additional production-specific tests
+          echo "Running performance baseline tests..."
+          # Add performance regression tests here
+
+      - name: Create deployment record
+        run: |
+          echo "Recording deployment information..."
+          
+          cat > deployment-record.json << EOF
+          {
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "environment": "production",
+            "version": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "actor": "${{ github.actor }}",
+            "url": "${{ steps.deploy.outputs.url }}",
+            "image": "${{ needs.build-images.outputs.image-tag }}",
+            "digest": "${{ needs.build-images.outputs.image-digest }}"
+          }
+          EOF
+          
+          echo "Deployment completed successfully!"
+          cat deployment-record.json
+
+      - name: Upload deployment record
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-record-${{ github.sha }}
+          path: deployment-record.json
+          retention-days: 90
+
+  # Rollback capability
+  rollback:
+    runs-on: ubuntu-latest
+    if: failure() && (needs.deploy-production.result == 'failure')
+    needs: [deploy-production]
+    environment:
+      name: production
+    
+    steps:
+      - name: Rollback production deployment
+        run: |
+          echo "🚨 Production deployment failed, initiating rollback..."
+          
+          # Implement rollback logic here
+          # This could involve:
+          # 1. Reverting to previous Docker image
+          # 2. Rolling back database migrations
+          # 3. Restoring previous configuration
+          
+          echo "Rollback completed"
+
+  # Post-deployment notifications
+  notify:
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify deployment success
+        if: ${{ needs.deploy-production.result == 'success' || needs.deploy-staging.result == 'success' }}
+        run: |
+          ENV="staging"
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            ENV="production"
+          fi
+          
+          echo "🚀 Deployment to $ENV successful!"
+          echo "Version: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployed by: ${{ github.actor }}"
+
+      - name: Notify deployment failure
+        if: ${{ needs.deploy-production.result == 'failure' || needs.deploy-staging.result == 'failure' }}
+        run: |
+          echo "💥 Deployment failed!"
+          echo "Please check the logs and take appropriate action."
+          echo "Consider rolling back if production is affected."

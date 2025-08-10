@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+coverage
+
+# Generated files
+*.min.js
+*.min.css
+*.bundle.js
+*.bundle.css
+
+# Test outputs
+test-results
+playwright-report
+
+# Config files that should maintain specific formatting
+pnpm-lock.yaml
+package-lock.json
+
+# Ignore certain file types
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+
+# IDE and system files
+.DS_Store
+.vscode
+.idea
+
+# Log files
+*.log
+npm-debug.log*
