@@ -1,0 +1,29 @@
+# Brand DNA Analyzer - Dependencies
+# Production-ready visual brand intelligence system
+
+# ── DATA COLLECTION ──
+apify-client==1.7.2          # Apify actors orchestration
+playwright==1.44.0           # Screenshot automation
+requests==2.31.0             # HTTP requests
+
+# ── IMAGE PROCESSING ──
+Pillow==10.3.0               # Image manipulation
+colorthief==0.2.1            # Color palette extraction
+opencv-python==4.9.0         # Advanced image processing
+
+# ── PDF GENERATION ──
+reportlab==4.0.9             # PDF creation (Context7 validated)
+matplotlib==3.8.4            # Charts/graphs
+seaborn==0.13.2              # Statistical visualizations
+
+# ── AI ANALYSIS ──
+anthropic==0.25.6            # Claude strategic analysis
+openai==1.35.0               # GPT-4 (optional backup)
+
+# ── DATA PROCESSING ──
+pandas==2.2.2                # Data manipulation
+numpy==1.26.4                # Numerical operations
+
+# ── UTILITIES ──
+python-dotenv==1.0.1         # Environment variables
+tqdm==4.66.4                 # Progress bars
