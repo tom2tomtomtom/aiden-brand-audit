@@ -87,18 +87,21 @@ async def run_analysis_async(job_id: str, brand_configs: List[Dict], progress_lo
 
         # Run the full analysis
         progress_logger.log("Running full brand DNA analysis...", 'info')
-        report_path = await analyzer.analyze_brands(brand_configs)
+        result = await analyzer.analyze_brands(brand_configs)
 
         # Success
-        progress_logger.log(f"Analysis complete! Report: {report_path}", 'success')
+        progress_logger.log(f"Analysis complete! Report: {result['report_path']}", 'success')
         active_jobs[job_id]['status'] = 'completed'
-        active_jobs[job_id]['report_path'] = report_path
+        active_jobs[job_id]['report_path'] = result['report_path']
+        active_jobs[job_id]['brands_data'] = result['brands_data']
+        active_jobs[job_id]['strategic_insights'] = result['strategic_insights']
+        active_jobs[job_id]['duration'] = result['duration']
         active_jobs[job_id]['completed_at'] = datetime.now().isoformat()
 
         socketio.emit('job_status', {
             'job_id': job_id,
             'status': 'completed',
-            'report_path': str(report_path)
+            'report_path': str(result['report_path'])
         })
 
     except Exception as e:
@@ -263,6 +266,43 @@ def download_report(job_id: str):
         as_attachment=True,
         download_name=f"brand_dna_report_{job_id}.pdf"
     )
+
+
+@app.route('/api/jobs/<job_id>/comparison', methods=['GET'])
+def get_comparison_data(job_id: str):
+    """Get comparison data for multi-brand analysis"""
+    if job_id not in active_jobs:
+        return jsonify({'error': 'Job not found'}), 404
+
+    job = active_jobs[job_id]
+
+    if job['status'] != 'completed':
+        return jsonify({'error': 'Analysis not complete yet'}), 400
+
+    brands_data = job.get('brands_data', [])
+    strategic_insights = job.get('strategic_insights', {})
+
+    # Build comparison grid data
+    comparison = {
+        'brands': [],
+        'insights': strategic_insights
+    }
+
+    for brand in brands_data:
+        brand_summary = {
+            'name': brand['name'],
+            'logo': brand.get('logos', {}).get('primary_logo'),
+            'colors': brand.get('colors', {}).get('primary_colors', []),
+            'ad_count': len(brand.get('ads', [])),
+            'screenshot_count': len(brand.get('screenshots', [])),
+            'visual_identity': {
+                'dominant_color': brand.get('colors', {}).get('primary_colors', [{}])[0] if brand.get('colors', {}).get('primary_colors') else None,
+                'color_palette': brand.get('colors', {}).get('primary_colors', [])[:6]
+            }
+        }
+        comparison['brands'].append(brand_summary)
+
+    return jsonify(comparison)
 
 
 # ============================================================================

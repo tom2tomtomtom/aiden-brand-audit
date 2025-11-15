@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dna, Github, ExternalLink } from 'lucide-react';
 import BrandForm from './components/BrandForm';
 import ProgressTracker from './components/ProgressTracker';
+import ComparisonGrid from './components/ComparisonGrid';
 import { useSocket } from './hooks/useSocket';
 import { startAnalysis } from './utils/api';
 
@@ -36,6 +37,7 @@ function App() {
       },
     ]);
     setIsAnalyzing(false);
+    // Keep currentJobId so ComparisonGrid can fetch data
   };
 
   return (
@@ -93,14 +95,16 @@ function App() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white mb-2">
-                What This Tool Does
+                Multi-Brand Comparison Intelligence
               </h2>
               <ul className="text-slate-300 text-sm space-y-1">
+                <li>• <strong>Add multiple brands</strong> to get side-by-side competitive analysis</li>
                 <li>• Automatically collects brand logos and visual identifiers</li>
                 <li>• Scrapes Facebook Ad Library for up to 50 ads per brand</li>
                 <li>• Captures high-quality screenshots of ad creatives</li>
                 <li>• Extracts 6-color brand palettes from visual assets</li>
-                <li>• Generates 30-40 page executive PDF reports with AI insights</li>
+                <li>• <strong>View comparison grid</strong> in your browser or download PDF report</li>
+                <li>• AI-powered strategic insights across all brands</li>
               </ul>
             </div>
           </div>
@@ -112,7 +116,7 @@ function App() {
         </div>
 
         {/* Progress Tracker */}
-        {currentJobId && (
+        {currentJobId && isAnalyzing && (
           <div className="mb-8">
             <ProgressTracker
               socket={socket}
@@ -122,10 +126,17 @@ function App() {
           </div>
         )}
 
-        {/* Completed Reports */}
+        {/* Comparison Grid - Show after analysis completes */}
+        {currentJobId && !isAnalyzing && completedReports.length > 0 && (
+          <div className="mb-8">
+            <ComparisonGrid jobId={currentJobId} />
+          </div>
+        )}
+
+        {/* Completed Reports History */}
         {completedReports.length > 0 && (
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-            <h3 className="text-xl font-bold text-white mb-4">Completed Reports</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Analysis History</h3>
             <div className="space-y-3">
               {completedReports.map((report, index) => (
                 <div
@@ -138,15 +149,26 @@ function App() {
                       {new Date(report.timestamp).toLocaleString()}
                     </p>
                   </div>
-                  <a
-                    href={`http://localhost:5000/api/reports/${report.jobId}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Download
-                  </a>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setCurrentJobId(report.jobId);
+                        setIsAnalyzing(false);
+                      }}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                    >
+                      View Comparison
+                    </button>
+                    <a
+                      href={`http://localhost:5000/api/reports/${report.jobId}/download`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Download PDF
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>

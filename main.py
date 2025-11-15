@@ -54,7 +54,7 @@ class BrandDNAAnalyzer:
         self,
         brand_configs: List[Dict],
         output_dir: Path = None
-    ) -> str:
+    ) -> Dict:
         """
         Complete brand DNA analysis workflow
 
@@ -68,7 +68,10 @@ class BrandDNAAnalyzer:
             output_dir: Output directory (defaults to config)
 
         Returns:
-            Path to generated PDF report
+            Dict containing:
+                - report_path: Path to generated PDF report
+                - brands_data: Collected brand data
+                - strategic_insights: AI analysis results
         """
         output_dir = output_dir or config.OUTPUT_DIR
         start_time = datetime.now()
@@ -170,7 +173,12 @@ class BrandDNAAnalyzer:
         logger.info(f"📄 Report: {report_path}")
         logger.info(f"{'='*60}\n")
 
-        return report_path
+        return {
+            'report_path': report_path,
+            'brands_data': brands_data,
+            'strategic_insights': strategic_insights,
+            'duration': duration
+        }
 
 
 async def main():
@@ -196,9 +204,9 @@ async def main():
 
     # Run analysis
     analyzer = BrandDNAAnalyzer()
-    report_path = await analyzer.analyze_brands(brand_configs)
+    result = await analyzer.analyze_brands(brand_configs)
 
-    print(f"\n✅ Report generated: {report_path}")
+    print(f"\n✅ Report generated: {result['report_path']}")
 
 
 if __name__ == "__main__":
