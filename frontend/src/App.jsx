@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Dna, Github, ExternalLink } from 'lucide-react';
+import { Dna, Github, ExternalLink, Eye, Download } from 'lucide-react';
 import BrandForm from './components/BrandForm';
 import ProgressTracker from './components/ProgressTracker';
+import ReportViewer from './components/ReportViewer';
 import { useSocket } from './hooks/useSocket';
 import { startAnalysis } from './utils/api';
 
@@ -10,6 +11,7 @@ function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentJobId, setCurrentJobId] = useState(null);
   const [completedReports, setCompletedReports] = useState([]);
+  const [viewingReportId, setViewingReportId] = useState(null);
 
   const handleStartAnalysis = async (brands) => {
     try {
@@ -138,19 +140,36 @@ function App() {
                       {new Date(report.timestamp).toLocaleString()}
                     </p>
                   </div>
-                  <a
-                    href={`http://localhost:5000/api/reports/${report.jobId}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Download
-                  </a>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setViewingReportId(report.jobId)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View & Edit
+                    </button>
+                    <a
+                      href={`http://localhost:5000/api/reports/${report.jobId}/download`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+        )}
+
+        {/* Report Viewer Modal */}
+        {viewingReportId && (
+          <ReportViewer
+            jobId={viewingReportId}
+            onClose={() => setViewingReportId(null)}
+          />
         )}
       </main>
 
