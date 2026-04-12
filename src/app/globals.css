@@ -1,8 +1,36 @@
 @import "tailwindcss";
 
+@theme {
+  --color-black-ink: #050505;
+  --color-black-deep: #0a0a0a;
+  --color-black-card: #0f0f0f;
+  --color-red-hot: #ff2e2e;
+  --color-red-dim: #cc2525;
+  --color-orange-accent: #ff6b00;
+  --color-yellow-electric: #ffeb3b;
+  --color-white-full: #ffffff;
+  --color-white-muted: rgba(255, 255, 255, 0.6);
+  --color-white-dim: rgba(255, 255, 255, 0.4);
+  --color-white-faint: rgba(255, 255, 255, 0.1);
+  --color-grid-lines: rgba(255, 255, 255, 0.02);
+  --color-border-subtle: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 46, 46, 0.3);
+
+  --font-geist-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --radius-none: 0px;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
 :root {
-  --background: #050505;
-  --foreground: #ffffff;
   --black-ink: #050505;
   --black-deep: #0a0a0a;
   --black-card: #0f0f0f;
@@ -20,8 +48,8 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--black-ink);
+  color: var(--white-full);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   background-image:
     linear-gradient(var(--grid-lines) 1px, transparent 1px),
