@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { extractAndRepairJson } from "./json-repair";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -77,7 +78,7 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
       }
     }
 
-    const jsonStr = extractJson(fullText);
+    const jsonStr = extractAndRepairJson(fullText);
     const parsed = JSON.parse(jsonStr) as BrandIntelResult;
 
     if (citations.length > 0) {
@@ -94,16 +95,6 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
     console.error(`[brand-intel] Failed for ${brandName}:`, error);
     return emptyResult();
   }
-}
-
-function extractJson(text: string): string {
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
-
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) return braceMatch[0].trim();
-
-  return text.trim();
 }
 
 function emptyResult(): BrandIntelResult {

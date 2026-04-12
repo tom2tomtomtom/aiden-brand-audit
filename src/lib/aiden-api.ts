@@ -1,3 +1,5 @@
+import { extractAndRepairJson } from "./json-repair";
+
 const AIDEN_API_BASE = process.env.AIDEN_API_URL || "https://aiden-api-production.up.railway.app";
 const AIDEN_API_KEY = process.env.AIDEN_API_KEY || "";
 
@@ -35,15 +37,6 @@ export interface AidenChatResponse {
   };
 }
 
-function extractJson(text: string): string {
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
-
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) return braceMatch[0].trim();
-
-  return text.trim();
-}
 
 export interface BrandAnalysisInput {
   name: string;
@@ -122,7 +115,7 @@ REQUIRED JSON STRUCTURE:
   );
 
   const raw = result.data.content;
-  const jsonStr = extractJson(raw);
+  const jsonStr = extractAndRepairJson(raw);
 
   JSON.parse(jsonStr);
 
