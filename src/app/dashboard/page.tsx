@@ -138,6 +138,14 @@ function UsageBadge({ planLimits }: { planLimits: PlanLimits | null }) {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [brands, setBrands] = useState<BrandConfig[]>([
