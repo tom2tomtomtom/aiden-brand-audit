@@ -35,6 +35,16 @@ export interface AidenChatResponse {
   };
 }
 
+function extractJson(text: string): string {
+  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) return braceMatch[0].trim();
+
+  return text.trim();
+}
+
 export async function analyzeWithAiden(brandsData: {
   name: string;
   adCount: number;
@@ -46,38 +56,18 @@ export async function analyzeWithAiden(brandsData: {
     .map((b) => `Brand: ${b.name}\n- ${b.adCount} ads collected\n- ${b.screenshotCount} screenshots\n- Colors: ${b.primaryColors.join(", ")}\n- Ad themes: ${b.adThemes.slice(0, 5).join("; ")}`)
     .join("\n\n");
 
-  const message = `You are an expert brand strategist conducting a competitive brand DNA analysis.
+  const message = `TASK: Produce a competitive brand DNA analysis as a JSON object.
 
-Analyze these brands and produce a comprehensive competitive intelligence report:
-
+DATA:
 ${brandSummary}
 
-Respond with JSON in this exact structure:
-{
-  "executiveSummary": {
-    "overview": "2-3 sentence overview",
-    "keyFindings": ["finding 1", "finding 2", "finding 3"],
-    "strategicImplications": "paragraph on implications"
-  },
-  "visualDna": {
-    "colorStrategies": {"BrandName": "description"},
-    "visualDifferentiation": "paragraph",
-    "sharedPatterns": ["pattern 1"],
-    "uniqueElements": {"BrandName": ["element 1"]}
-  },
-  "creativeDna": {
-    "messagingThemes": {"BrandName": ["theme 1"]},
-    "toneAndVoice": {"BrandName": "description"},
-    "creativeDirections": {"BrandName": ["direction 1"]}
-  },
-  "strategicSynthesis": {
-    "competitivePositioning": {"BrandName": {"strengths": [], "weaknesses": [], "marketPosition": ""}},
-    "whiteSpaceOpportunities": ["opp 1"],
-    "recommendedActions": [{"action": "", "rationale": "", "expectedImpact": ""}]
-  }
-}
+INSTRUCTIONS:
+- You MUST respond with ONLY a valid JSON object. No text before or after.
+- No markdown fences. No explanation. Just the JSON.
+- Use the brand names from the data as keys.
 
-Return ONLY the JSON object, no markdown fences.`;
+REQUIRED JSON STRUCTURE:
+{"executiveSummary":{"overview":"2-3 sentence competitive overview","keyFindings":["finding1","finding2","finding3","finding4","finding5"],"strategicImplications":"paragraph on strategic implications"},"visualDna":{"colorStrategies":{"BrandName":"color strategy description"},"visualDifferentiation":"paragraph on visual differences","sharedPatterns":["shared pattern 1","shared pattern 2"],"uniqueElements":{"BrandName":["unique element 1","unique element 2"]}},"creativeDna":{"messagingThemes":{"BrandName":["theme 1","theme 2"]},"toneAndVoice":{"BrandName":"tone description"},"creativeDirections":{"BrandName":["direction 1","direction 2"]}},"strategicSynthesis":{"competitivePositioning":{"BrandName":{"strengths":["s1","s2"],"weaknesses":["w1","w2"],"marketPosition":"position description"}},"whiteSpaceOpportunities":["opportunity 1","opportunity 2"],"recommendedActions":[{"action":"action","rationale":"why","expectedImpact":"impact"}]}}`;
 
   const result = await callAidenAPI<AidenChatResponse>(
     "/chat",
@@ -85,7 +75,12 @@ Return ONLY the JSON object, no markdown fences.`;
     300000
   );
 
-  return result.data.content;
+  const raw = result.data.content;
+  const jsonStr = extractJson(raw);
+
+  JSON.parse(jsonStr);
+
+  return jsonStr;
 }
 
 export async function getAidenHealth(): Promise<boolean> {

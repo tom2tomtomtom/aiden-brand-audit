@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
 
           const analysisJson = await analyzeWithAiden(summaries);
           strategicAnalysis = JSON.parse(analysisJson);
-        } catch (e) {
+        } catch (e: unknown) {
+          console.error("[audit] AIDEN analysis failed:", e instanceof Error ? e.message : e);
           strategicAnalysis = {
             executiveSummary: {
               overview: "Strategic analysis could not be completed. Please check your AIDEN API configuration.",
