@@ -1,7 +1,7 @@
 import { createServiceClient } from "./server";
 import type { AuditResults } from "@/lib/types";
 
-export async function saveReport(results: AuditResults): Promise<string | null> {
+export async function saveReport(results: AuditResults, userId?: string): Promise<string | null> {
   const supabase = createServiceClient();
   if (!supabase) return null;
 
@@ -12,6 +12,7 @@ export async function saveReport(results: AuditResults): Promise<string | null> 
       results: results as unknown as Record<string, unknown>,
       duration: results.duration,
       created_at: results.createdAt,
+      ...(userId && { user_id: userId }),
     });
 
     if (error) {

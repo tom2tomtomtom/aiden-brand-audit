@@ -3,11 +3,18 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, CreditCard } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, CreditCard, Clock, FileText, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
 import type { PlanLimits } from "@/lib/usage";
+
+interface ReportSummary {
+  id: string;
+  brands: string[];
+  created_at: string;
+  duration: number;
+}
 
 interface CompanyResult {
   page_id: string;
@@ -158,6 +165,8 @@ function DashboardContent() {
   const [progressDetail, setProgressDetail] = useState("");
   const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
@@ -180,6 +189,15 @@ function DashboardContent() {
           setPlanLimits(data);
         }
       } catch { /* non-critical */ }
+
+      try {
+        const res = await fetch("/api/reports");
+        if (res.ok) {
+          const data = await res.json();
+          setPastReports(data);
+        }
+      } catch { /* non-critical */ }
+      setReportsLoading(false);
     }
     loadUserData();
   }, []);
@@ -456,6 +474,61 @@ function DashboardContent() {
             </div>
           </div>
         )}
+
+        <div className="max-w-3xl mx-auto mt-12">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-white uppercase tracking-tight flex items-center gap-2">
+              <FileText className="h-5 w-5 text-orange-accent" />
+              Past Reports
+            </h3>
+            <span className="text-xs text-white-dim font-geist-mono">
+              {pastReports.length} report{pastReports.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {reportsLoading ? (
+            <div className="bg-black-deep border-2 border-border-subtle p-8 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-white-dim" />
+            </div>
+          ) : pastReports.length === 0 ? (
+            <div className="bg-black-deep border-2 border-border-subtle p-8 text-center">
+              <p className="text-sm text-white-dim">No reports yet. Run your first audit above.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pastReports.map((report) => (
+                <Link
+                  key={report.id}
+                  href={`/report/${report.id}`}
+                  className="flex items-center justify-between bg-black-deep border-2 border-border-subtle p-4 hover:border-red-hot transition-all group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white-full group-hover:text-red-hot transition-colors truncate">
+                      {report.brands.join(" vs ")}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[10px] text-white-dim font-geist-mono flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(report.created_at).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-[10px] text-white-dim font-geist-mono">
+                        {Math.round(report.duration / 1000)}s
+                      </span>
+                      <span className="text-[10px] text-orange-accent font-geist-mono">
+                        {report.brands.length} brands
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

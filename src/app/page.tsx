@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { Zap, Eye, BarChart3, Brain, ArrowRight, Shield, Globe, FileText } from "lucide-react";
 
@@ -13,6 +11,9 @@ export default function HomePage() {
               BRAND DNA // ANALYZER
             </h1>
             <div className="flex items-center gap-4">
+              <Link href="/pricing" className="text-sm text-white-dim hover:text-white transition-colors uppercase tracking-wide">
+                Pricing
+              </Link>
               <Link href="/login" className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
                 Sign in
               </Link>

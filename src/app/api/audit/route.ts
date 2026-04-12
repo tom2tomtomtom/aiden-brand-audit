@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
 
         try {
           const { saveReport } = await import("@/lib/supabase/reports");
-          await saveReport(results);
+          await saveReport(results, auth.user.id);
         } catch {
           // Supabase not configured — session-only mode
         }
