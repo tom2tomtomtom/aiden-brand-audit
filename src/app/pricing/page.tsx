@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import type { PlanKey } from "@/lib/stripe";
+import { createClient } from "@/lib/supabase/client";
 
 const tiers = [
   {
@@ -88,28 +90,52 @@ const tiers = [
 
 export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+  }, []);
+
   async function handleCheckout(plan: PlanKey) {
+    if (!isLoggedIn) {
+      toast.error("Please sign in first to purchase a plan.");
+      router.push("/login");
+      return;
+    }
+
     setLoading(plan);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ plan }),
       });
 
       if (res.status === 401) {
+        toast.error("Session expired. Redirecting to login...");
         router.push("/login");
         return;
       }
 
       const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        toast.error("Failed to create checkout session.");
       }
     } catch (err) {
       console.error("Checkout error:", err);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(null);
     }
@@ -126,15 +152,23 @@ export default function PricingPage() {
               </h1>
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/login" className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
-                Sign in
-              </Link>
-              <Link
-                href="/register"
-                className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide"
-              >
-                Get started
-              </Link>
+              {isLoggedIn ? (
+                <Link href="/dashboard" className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide">
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide"
+                  >
+                    Get started
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
