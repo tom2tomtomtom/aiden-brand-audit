@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { collectLogos, collectAds } from "@/lib/apify";
+import { collectLogos } from "@/lib/apify";
+import { collectAds } from "@/lib/scrape-creators";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
@@ -53,12 +54,12 @@ export async function POST(request: NextRequest) {
             type: "progress",
             step: `Scraping Facebook ads for ${brand.name}`,
             progress: brandProgress + 20,
-            detail: "Querying Facebook Ad Library via Apify",
+            detail: "Querying Facebook Ad Library via ScrapeCreators",
           });
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];
           try {
-            ads = await collectAds(brand.facebookPage || brand.name);
+            ads = await collectAds(brand.facebookPage || brand.name, "US", 50);
           } catch {
             ads = [];
           }

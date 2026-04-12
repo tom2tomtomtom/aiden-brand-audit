@@ -21,6 +21,7 @@ export interface BrandAd {
   startDate: string | null;
   pageName: string | null;
   adUrl: string | null;
+  allImageUrls?: string[];
 }
 
 export interface ColorPalette {
