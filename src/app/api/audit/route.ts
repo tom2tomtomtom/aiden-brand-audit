@@ -4,11 +4,42 @@ import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
 import { gatherBrandIntel } from "@/lib/brand-intel";
+import { requireAuth } from "@/lib/auth";
+import { createServiceClient } from "@/lib/supabase/server";
+import { canRunAudit, incrementUsage, getUserPlan } from "@/lib/usage";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.success) return auth.response;
+
+  const { allowed: rateLimitAllowed } = checkRateLimit(auth.user.id, 3, 60_000);
+  if (!rateLimitAllowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": "60" },
+    });
+  }
+
+  const supabase = createServiceClient();
+  if (supabase) {
+    const { allowed, planLimits } = await canRunAudit(supabase, auth.user.id);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Usage limit reached",
+          plan: planLimits.plan,
+          used: planLimits.used,
+          limit: planLimits.limit,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   const { brands } = (await request.json()) as { brands: BrandConfig[] };
 
   if (!brands || brands.length === 0) {
@@ -16,6 +47,11 @@ export async function POST(request: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  if (supabase) {
+    const plan = await getUserPlan(supabase, auth.user.id);
+    await incrementUsage(supabase, auth.user.id, plan);
   }
 
   const encoder = new TextEncoder();
