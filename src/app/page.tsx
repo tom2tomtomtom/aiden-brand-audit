@@ -123,12 +123,15 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl sm:text-6xl font-bold tracking-tight text-red-hot uppercase">
+          <h2 className="text-5xl sm:text-7xl font-bold tracking-tight text-red-hot uppercase">
             Competitive Brand<br />Intelligence
           </h2>
-          <p className="mt-6 text-lg text-white-muted max-w-2xl mx-auto">
-            Scrape real ad data. Extract visual DNA. Get AI-powered strategic analysis
-            from AIDEN&apos;s phantom brain system.
+          <p className="mt-6 text-lg text-white-muted max-w-3xl mx-auto uppercase tracking-wide">
+            Scrape real ad data. Extract visual DNA. Get strategic analysis.
+          </p>
+          <p className="mt-4 text-base text-white-dim max-w-2xl mx-auto">
+            AIDEN&apos;s phantom brain system analyzes Facebook Ad Library data,
+            extracts color DNA, and delivers competitive intelligence in seconds.
           </p>
         </div>
 
@@ -220,8 +223,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            <p className="text-center text-xs text-white-dim mt-4">
-              Analysis uses Apify (~$0.45/brand) and AIDEN API. Takes 2-5 minutes.
+            <p className="text-center text-xs text-white-dim mt-4 uppercase tracking-wide">
+              Powered by ScrapeCreators + AIDEN API // Typically completes in 30-60 seconds
             </p>
           </div>
         ) : (

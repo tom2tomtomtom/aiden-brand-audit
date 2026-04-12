@@ -23,9 +23,9 @@ export function CompetitiveMatrix({
           const pos = data as { strengths: string[]; weaknesses: string[]; marketPosition: string };
 
           return (
-            <div key={brand} className="bg-black-deep border-2 border-border-subtle">
+            <div key={brand} className="bg-black-deep border-2 border-border-subtle hover:border-orange-accent transition-all">
               {/* Brand header */}
-              <div className="flex items-center justify-between p-6 border-b border-border-subtle">
+              <div className="flex items-center justify-between p-6 border-b-2 border-border-subtle">
                 <div className="flex items-center gap-4">
                   {brandData?.logos.primaryLogo ? (
                     <img

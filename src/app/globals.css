@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --background: #050505;
+  --foreground: #ffffff;
   --black-ink: #050505;
   --black-deep: #0a0a0a;
   --black-card: #0f0f0f;
@@ -18,8 +20,8 @@
 }
 
 body {
-  background: var(--black-ink);
-  color: var(--white-full);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   background-image:
     linear-gradient(var(--grid-lines) 1px, transparent 1px),
@@ -29,17 +31,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-* { border-radius: 0 !important; }
-
-::selection {
-  background: var(--red-hot);
-  color: var(--white-full);
+* {
+  border-radius: 0 !important;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--black-deep); }
-::-webkit-scrollbar-thumb { background: var(--red-hot); }
-::-webkit-scrollbar-thumb:hover { background: var(--red-dim); }
+:where(button, [role="button"], a, input, select, textarea) {
+  outline: none;
+}
 
 :where(button, [role="button"], a, input, select, textarea):focus-visible {
   box-shadow: 0 0 0 2px var(--red-hot);
@@ -47,15 +45,73 @@ body {
   outline-offset: 2px;
 }
 
-input, textarea, select {
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--black-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--red-hot);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--red-dim);
+}
+
+::selection {
+  background: var(--red-hot);
+  color: var(--white-full);
+}
+
+input,
+textarea,
+select {
   background: var(--black-card);
   border: 1px solid var(--border-subtle);
   color: var(--white-full);
 }
 
-input:focus, textarea:focus, select:focus {
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: var(--border-strong);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
   border-color: var(--red-hot);
   background: var(--black-deep);
 }
 
-.tabular-nums { font-variant-numeric: tabular-nums; }
+button {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

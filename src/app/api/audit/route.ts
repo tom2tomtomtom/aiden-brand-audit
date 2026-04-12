@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
             type: "progress",
             step: `Scraping Facebook ads for ${brand.name}`,
             progress: brandProgress + 20,
-            detail: "Querying Facebook Ad Library via ScrapeCreators",
+            detail: "Querying Facebook Ad Library",
           });
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];

@@ -10,8 +10,8 @@ export function ExecutiveSummary({ analysis }: { analysis: StrategicAnalysisType
         Executive Summary
       </h2>
 
-      <div className="bg-black-deep border-2 border-border-subtle p-6">
-        <p className="text-white-muted text-base leading-relaxed">
+      <div className="bg-black-deep border-2 border-red-hot p-8">
+        <p className="text-white-muted text-lg leading-relaxed">
           {executiveSummary.overview}
         </p>
       </div>
