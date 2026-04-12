@@ -55,6 +55,14 @@ export interface BrandAnalysisInput {
   recentActivations: string[];
   recentCampaigns: string[];
   socialPlatforms: string[];
+  socialSentiment: {
+    totalPosts: number;
+    totalEngagement: number;
+    platformBreakdown: { platform: string; posts: number; engagement: number }[];
+    topTikTokContent: string[];
+    topRedditDiscussions: string[];
+    topInstagramPosts: string[];
+  } | null;
 }
 
 export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promise<string> {
@@ -88,6 +96,20 @@ export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promis
       }
       if (b.socialPlatforms.length > 0) {
         parts.push(`- Social presence: ${b.socialPlatforms.join(", ")}`);
+      }
+      if (b.socialSentiment) {
+        const ss = b.socialSentiment;
+        parts.push(`- Social sentiment: ${ss.totalPosts} organic posts scraped, ${ss.totalEngagement.toLocaleString()} total engagement`);
+        parts.push(`- Platform breakdown: ${ss.platformBreakdown.map(p => `${p.platform}: ${p.posts} posts, ${p.engagement.toLocaleString()} engagement`).join(" | ")}`);
+        if (ss.topTikTokContent.length > 0) {
+          parts.push(`- Top TikTok content:\n${ss.topTikTokContent.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+        }
+        if (ss.topInstagramPosts.length > 0) {
+          parts.push(`- Top Instagram posts:\n${ss.topInstagramPosts.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+        }
+        if (ss.topRedditDiscussions.length > 0) {
+          parts.push(`- Top Reddit discussions:\n${ss.topRedditDiscussions.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+        }
       }
       return parts.join("\n");
     })

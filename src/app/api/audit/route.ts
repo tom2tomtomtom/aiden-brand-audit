@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
+import { collectSocialSentiment } from "@/lib/social-scraper";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
 import { gatherBrandIntel } from "@/lib/brand-intel";
@@ -155,9 +156,25 @@ export async function POST(request: NextRequest) {
 
           send({
             type: "progress",
-            step: `Compiled ${brand.name} intelligence`,
+            step: `Scraping social sentiment for ${brand.name}`,
             progress: brandProgress + 50,
-            detail: `${ads.length} ads, ${adCreativeUrls.length} images, ${intelCount} press/PR items`,
+            detail: "TikTok, Instagram & Reddit organic conversations",
+          });
+
+          let social = null;
+          try {
+            social = await collectSocialSentiment(brand.name);
+          } catch {
+            // Social scraping is non-critical
+          }
+
+          const socialCount = social?.summary.totalPosts || 0;
+
+          send({
+            type: "progress",
+            step: `Compiled ${brand.name} intelligence`,
+            progress: brandProgress + 60,
+            detail: `${ads.length} ads, ${intelCount} press items, ${socialCount} social posts`,
           });
 
           brandsData.push({
@@ -170,6 +187,7 @@ export async function POST(request: NextRequest) {
             adColors,
             analytics,
             intel,
+            social,
           });
         }
 
@@ -210,6 +228,14 @@ export async function POST(request: NextRequest) {
             recentActivations: b.intel.activations.slice(0, 3).map(a => a.title),
             recentCampaigns: b.intel.recentCampaigns.slice(0, 3).map(c => `${c.name}: ${c.description}`),
             socialPlatforms: b.intel.socialPresence.map(s => `${s.platform}: ${s.handle}`),
+            socialSentiment: b.social ? {
+              totalPosts: b.social.summary.totalPosts,
+              totalEngagement: b.social.summary.totalEngagement,
+              platformBreakdown: b.social.summary.platformBreakdown,
+              topTikTokContent: b.social.tiktok.slice(0, 3).map(p => `@${p.author}: ${p.text.slice(0, 100)} (${p.views} views, ${p.likes} likes)`),
+              topRedditDiscussions: b.social.reddit.slice(0, 3).map(p => `${p.text.slice(0, 120)} (score: ${p.likes}, ${p.comments} comments)`),
+              topInstagramPosts: b.social.instagram.slice(0, 3).map(p => `@${p.author}: ${p.text.slice(0, 100)} (${p.likes} likes)`),
+            } : null,
           }));
 
           const analysisJson = await analyzeWithAiden(aidenInput);

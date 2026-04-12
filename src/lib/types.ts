@@ -63,6 +63,33 @@ export interface BrandIntel {
   citations: { url: string; title: string }[];
 }
 
+export interface SocialPost {
+  platform: "tiktok" | "instagram" | "reddit";
+  id: string;
+  author: string;
+  text: string;
+  url: string;
+  views: number;
+  likes: number;
+  shares: number;
+  comments: number;
+  region?: string;
+  subreddit?: string;
+  upvoteRatio?: number;
+}
+
+export interface SocialSentiment {
+  tiktok: SocialPost[];
+  instagram: SocialPost[];
+  reddit: SocialPost[];
+  summary: {
+    totalPosts: number;
+    totalEngagement: number;
+    platformBreakdown: { platform: string; posts: number; engagement: number }[];
+    topPost: SocialPost | null;
+  };
+}
+
 export interface BrandData {
   name: string;
   website: string;
@@ -73,6 +100,7 @@ export interface BrandData {
   adColors: ColorPalette | null;
   analytics: AdAnalytics;
   intel: BrandIntel;
+  social: SocialSentiment | null;
 }
 
 export interface PhantomPerspective {
