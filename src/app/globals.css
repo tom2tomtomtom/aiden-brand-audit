@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --black-ink: #050505;
+  --black-deep: #0a0a0a;
+  --black-card: #0f0f0f;
+  --red-hot: #ff2e2e;
+  --red-dim: #cc2525;
+  --orange-accent: #ff6b00;
+  --yellow-electric: #ffeb3b;
+  --white-full: #ffffff;
+  --white-muted: rgba(255, 255, 255, 0.6);
+  --white-dim: rgba(255, 255, 255, 0.4);
+  --white-faint: rgba(255, 255, 255, 0.1);
+  --grid-lines: rgba(255, 255, 255, 0.02);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 46, 46, 0.3);
+}
+
+body {
+  background: var(--black-ink);
+  color: var(--white-full);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-image:
+    linear-gradient(var(--grid-lines) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-lines) 1px, transparent 1px);
+  background-size: 20px 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { border-radius: 0 !important; }
+
+::selection {
+  background: var(--red-hot);
+  color: var(--white-full);
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--black-deep); }
+::-webkit-scrollbar-thumb { background: var(--red-hot); }
+::-webkit-scrollbar-thumb:hover { background: var(--red-dim); }
+
+:where(button, [role="button"], a, input, select, textarea):focus-visible {
+  box-shadow: 0 0 0 2px var(--red-hot);
+  outline: 2px solid var(--red-hot);
+  outline-offset: 2px;
+}
+
+input, textarea, select {
+  background: var(--black-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--white-full);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--red-hot);
+  background: var(--black-deep);
+}
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
