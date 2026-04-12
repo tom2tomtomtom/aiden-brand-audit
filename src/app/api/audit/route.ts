@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       }
 
+      // Keepalive to prevent proxy idle-connection drops (Railway 60s timeout)
+      const keepalive = setInterval(() => {
+        controller.enqueue(encoder.encode(": keepalive\n\n"));
+      }, 15_000);
+
       const startTime = Date.now();
       const brandsData: BrandData[] = [];
 
@@ -257,6 +262,7 @@ export async function POST(request: NextRequest) {
           message: error instanceof Error ? error.message : "Unknown error occurred",
         });
       } finally {
+        clearInterval(keepalive);
         controller.close();
       }
     },
