@@ -58,6 +58,10 @@ export interface BrandAnalysisInput {
   dateRange: { earliest: string | null; latest: string | null };
   topAdCopy: string[];
   topHeadlines: string[];
+  pressSummary: string[];
+  recentActivations: string[];
+  recentCampaigns: string[];
+  socialPlatforms: string[];
 }
 
 export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promise<string> {
@@ -79,6 +83,18 @@ export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promis
       }
       if (b.topAdCopy.length > 0) {
         parts.push(`- Sample ad copy:\n${b.topAdCopy.map((c, i) => `  ${i + 1}. "${c}"`).join("\n")}`);
+      }
+      if (b.pressSummary.length > 0) {
+        parts.push(`- Recent press coverage: ${b.pressSummary.join(" | ")}`);
+      }
+      if (b.recentActivations.length > 0) {
+        parts.push(`- Brand activations: ${b.recentActivations.join(", ")}`);
+      }
+      if (b.recentCampaigns.length > 0) {
+        parts.push(`- Recent campaigns:\n${b.recentCampaigns.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+      }
+      if (b.socialPlatforms.length > 0) {
+        parts.push(`- Social presence: ${b.socialPlatforms.join(", ")}`);
       }
       return parts.join("\n");
     })

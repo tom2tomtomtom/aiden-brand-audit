@@ -53,6 +53,16 @@ export interface ColorPalette {
   rgbValues: [number, number, number][];
 }
 
+export interface BrandIntel {
+  pressReleases: { title: string; source: string; url: string; date: string; summary: string }[];
+  pressCoverage: { title: string; source: string; url: string; date: string; summary: string }[];
+  activations: { title: string; description: string; url: string; date: string }[];
+  brandDocuments: { title: string; type: string; url: string; summary: string }[];
+  socialPresence: { platform: string; handle: string; url: string; followers?: string }[];
+  recentCampaigns: { name: string; description: string; url: string; date: string }[];
+  citations: { url: string; title: string }[];
+}
+
 export interface BrandData {
   name: string;
   website: string;
@@ -62,6 +72,7 @@ export interface BrandData {
   colors: ColorPalette | null;
   adColors: ColorPalette | null;
   analytics: AdAnalytics;
+  intel: BrandIntel;
 }
 
 export interface PhantomPerspective {

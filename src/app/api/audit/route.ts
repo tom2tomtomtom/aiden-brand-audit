@@ -3,6 +3,7 @@ import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
+import { gatherBrandIntel } from "@/lib/brand-intel";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -97,9 +98,25 @@ export async function POST(request: NextRequest) {
 
           send({
             type: "progress",
-            step: `Compiled ${brand.name} intelligence`,
+            step: `Researching ${brand.name} PR, press & activations`,
             progress: brandProgress + 40,
-            detail: `${ads.length} ads, ${adCreativeUrls.length} images, ${analytics.videoPercent}% video`,
+            detail: "Claude web search scanning public brand intelligence",
+          });
+
+          let intel;
+          try {
+            intel = await gatherBrandIntel(brand.name, brand.website);
+          } catch {
+            intel = { pressReleases: [], pressCoverage: [], activations: [], brandDocuments: [], socialPresence: [], recentCampaigns: [], citations: [] };
+          }
+
+          const intelCount = intel.pressReleases.length + intel.pressCoverage.length + intel.activations.length + intel.recentCampaigns.length;
+
+          send({
+            type: "progress",
+            step: `Compiled ${brand.name} intelligence`,
+            progress: brandProgress + 50,
+            detail: `${ads.length} ads, ${adCreativeUrls.length} images, ${intelCount} press/PR items`,
           });
 
           brandsData.push({
@@ -111,6 +128,7 @@ export async function POST(request: NextRequest) {
             colors,
             adColors,
             analytics,
+            intel,
           });
         }
 
@@ -147,6 +165,10 @@ export async function POST(request: NextRequest) {
               .map((a) => a.headline)
               .filter((h): h is string => !!h && h.length > 3)
               .slice(0, 8),
+            pressSummary: b.intel.pressCoverage.slice(0, 5).map(p => `${p.source}: ${p.title}`),
+            recentActivations: b.intel.activations.slice(0, 3).map(a => a.title),
+            recentCampaigns: b.intel.recentCampaigns.slice(0, 3).map(c => `${c.name}: ${c.description}`),
+            socialPlatforms: b.intel.socialPresence.map(s => `${s.platform}: ${s.handle}`),
           }));
 
           const analysisJson = await analyzeWithAiden(aidenInput);
