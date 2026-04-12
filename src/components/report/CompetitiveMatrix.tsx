@@ -16,7 +16,6 @@ export function CompetitiveMatrix({
         Competitive Matrix
       </h2>
 
-      {/* Positioning cards */}
       <div className="grid grid-cols-1 gap-4">
         {Object.entries(positioning).map(([brand, data]) => {
           const brandData = brands.find((b) => b.name === brand);
@@ -24,7 +23,6 @@ export function CompetitiveMatrix({
 
           return (
             <div key={brand} className="bg-black-deep border-2 border-border-subtle hover:border-orange-accent transition-all">
-              {/* Brand header */}
               <div className="flex items-center justify-between p-6 border-b-2 border-border-subtle">
                 <div className="flex items-center gap-4">
                   {brandData?.logos.primaryLogo ? (
@@ -48,7 +46,6 @@ export function CompetitiveMatrix({
                 </div>
               </div>
 
-              {/* Strengths & Weaknesses */}
               <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-3">
@@ -89,9 +86,8 @@ export function CompetitiveMatrix({
         })}
       </div>
 
-      {/* Stats comparison table */}
-      <div className="bg-black-card border-2 border-border-subtle overflow-hidden">
-        <table className="w-full">
+      <div className="bg-black-card border-2 border-border-subtle overflow-x-auto">
+        <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b-2 border-red-hot">
               <th className="text-left text-xs font-bold text-white-dim uppercase tracking-wide p-4">
@@ -109,7 +105,7 @@ export function CompetitiveMatrix({
               <td className="text-xs text-white-muted uppercase tracking-wide p-4">Total Ads</td>
               {brands.map((b) => (
                 <td key={b.name} className="text-center text-sm font-bold text-red-hot tabular-nums p-4">
-                  {b.ads.length}
+                  {b.analytics.totalAds}
                 </td>
               ))}
             </tr>
@@ -117,7 +113,31 @@ export function CompetitiveMatrix({
               <td className="text-xs text-white-muted uppercase tracking-wide p-4">Ad Images</td>
               {brands.map((b) => (
                 <td key={b.name} className="text-center text-sm font-bold text-red-hot tabular-nums p-4">
-                  {b.screenshots.length}
+                  {b.adCreativeUrls.length}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border-subtle">
+              <td className="text-xs text-white-muted uppercase tracking-wide p-4">Video %</td>
+              {brands.map((b) => (
+                <td key={b.name} className="text-center text-sm font-bold text-red-hot tabular-nums p-4">
+                  {b.analytics.videoPercent}%
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border-subtle">
+              <td className="text-xs text-white-muted uppercase tracking-wide p-4">Carousel %</td>
+              {brands.map((b) => (
+                <td key={b.name} className="text-center text-sm font-bold text-red-hot tabular-nums p-4">
+                  {b.analytics.carouselPercent}%
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border-subtle">
+              <td className="text-xs text-white-muted uppercase tracking-wide p-4">Avg Copy Length</td>
+              {brands.map((b) => (
+                <td key={b.name} className="text-center text-sm font-bold text-red-hot tabular-nums p-4">
+                  {b.analytics.avgCopyLength} chars
                 </td>
               ))}
             </tr>

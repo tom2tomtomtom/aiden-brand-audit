@@ -1,10 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import type { BrandConfig, ProgressEvent, AuditResults } from "@/lib/types";
+import type { BrandConfig, ProgressEvent } from "@/lib/types";
+
+interface CompanyResult {
+  page_id: string;
+  name: string;
+  page_alias: string;
+  category: string;
+  likes: number;
+  image_uri: string;
+}
+
+function CompanySearch({ brand, index, onSelect }: {
+  brand: BrandConfig;
+  index: number;
+  onSelect: (index: number, company: CompanyResult) => void;
+}) {
+  const [query, setQuery] = useState(brand.facebookPage || "");
+  const [results, setResults] = useState<CompanyResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleSearch(value: string) {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.length < 2) { setResults([]); setShowDropdown(false); return; }
+
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/companies?q=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        setResults(data.results || []);
+        setShowDropdown(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
+        Facebook Page <span className="text-white-dim/50 normal-case">(optional)</span>
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => results.length > 0 && setShowDropdown(true)}
+          placeholder="Search Facebook pages..."
+          className="w-full bg-black-card border border-border-subtle text-white-full px-4 py-3 text-sm placeholder:text-white-dim/50 hover:border-border-strong focus:border-red-hot focus:bg-black-deep transition-all pr-8"
+        />
+        {isSearching && <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-white-dim" />}
+        {!isSearching && brand.facebookPageId && <CheckCircle className="absolute right-3 top-3.5 h-4 w-4 text-orange-accent" />}
+        {!isSearching && !brand.facebookPageId && query.length >= 2 && <Search className="absolute right-3 top-3.5 h-4 w-4 text-white-dim" />}
+      </div>
+
+      {showDropdown && results.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-black-deep border-2 border-red-hot max-h-60 overflow-auto">
+          {results.map((company) => (
+            <button
+              key={company.page_id}
+              type="button"
+              onClick={() => {
+                onSelect(index, company);
+                setQuery(company.name);
+                setShowDropdown(false);
+              }}
+              className="w-full px-4 py-3 text-left hover:bg-black-card transition-colors border-b border-border-subtle last:border-0 flex items-center gap-3"
+            >
+              {company.image_uri && (
+                <img src={company.image_uri} alt="" className="w-8 h-8 object-cover border border-border-subtle" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white-full font-bold truncate">{company.name}</p>
+                <p className="text-[10px] text-white-dim uppercase tracking-wide">
+                  {company.category} {company.likes > 0 && `· ${(company.likes / 1000).toFixed(0)}K likes`}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -18,24 +118,29 @@ export default function HomePage() {
   const [progressDetail, setProgressDetail] = useState("");
 
   function addBrand() {
-    if (brands.length >= 5) {
-      toast.error("Maximum 5 brands per audit");
-      return;
-    }
+    if (brands.length >= 5) { toast.error("Maximum 5 brands per audit"); return; }
     setBrands([...brands, { name: "", website: "" }]);
   }
 
   function removeBrand(index: number) {
-    if (brands.length <= 2) {
-      toast.error("Minimum 2 brands required");
-      return;
-    }
+    if (brands.length <= 2) { toast.error("Minimum 2 brands required"); return; }
     setBrands(brands.filter((_, i) => i !== index));
   }
 
   function updateBrand(index: number, field: keyof BrandConfig, value: string) {
     const updated = [...brands];
     updated[index] = { ...updated[index], [field]: value };
+    setBrands(updated);
+  }
+
+  function selectCompany(index: number, company: CompanyResult) {
+    const updated = [...brands];
+    updated[index] = {
+      ...updated[index],
+      facebookPage: company.name,
+      facebookPageId: company.page_id,
+    };
+    if (!updated[index].name) updated[index].name = company.name;
     setBrands(updated);
   }
 
@@ -57,9 +162,7 @@ export default function HomePage() {
         body: JSON.stringify({ brands: validBrands }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to start audit");
-      }
+      if (!response.ok || !response.body) throw new Error("Failed to start audit");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -85,7 +188,6 @@ export default function HomePage() {
             } else if (event.type === "complete") {
               setProgress(100);
               setCurrentStep("Complete");
-              // Store results and navigate
               sessionStorage.setItem("auditResults", JSON.stringify(event.results));
               toast.success("Brand DNA analysis complete");
               router.push("/report");
@@ -106,7 +208,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-black-ink">
-      {/* Header */}
       <header className="border-b-2 border-red-hot bg-black-deep">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -121,7 +222,6 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero */}
         <div className="text-center mb-16">
           <h2 className="text-5xl sm:text-7xl font-bold tracking-tight text-red-hot uppercase">
             Competitive Brand<br />Intelligence
@@ -130,30 +230,25 @@ export default function HomePage() {
             Scrape real ad data. Extract visual DNA. Get strategic analysis.
           </p>
           <p className="mt-4 text-base text-white-dim max-w-2xl mx-auto">
-            AIDEN&apos;s phantom brain system analyzes Facebook Ad Library data,
-            extracts color DNA, and delivers competitive intelligence in seconds.
+            AIDEN&apos;s phantom brain analyzes Facebook Ad Library data, extracts color DNA
+            from logos and ad creatives, and delivers competitive intelligence in seconds.
           </p>
         </div>
 
-        {/* Feature pills */}
         <div className="flex flex-wrap justify-center gap-4 mb-16">
           {[
             { icon: Eye, label: "Ad Library Scraping" },
             { icon: Zap, label: "Color DNA Extraction" },
             { icon: Brain, label: "AIDEN Strategic Analysis" },
-            { icon: BarChart3, label: "Competitive Matrix" },
+            { icon: BarChart3, label: "Ad Analytics Dashboard" },
           ].map(({ icon: Icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 px-4 py-2 bg-black-card border border-border-subtle"
-            >
+            <div key={label} className="flex items-center gap-2 px-4 py-2 bg-black-card border border-border-subtle">
               <Icon className="h-4 w-4 text-orange-accent" />
               <span className="text-xs text-white-muted uppercase tracking-wide">{label}</span>
             </div>
           ))}
         </div>
 
-        {/* Brand Input Form */}
         {!isAnalyzing ? (
           <div className="max-w-3xl mx-auto">
             <div className="bg-black-deep border-2 border-border-subtle p-8">
@@ -161,12 +256,12 @@ export default function HomePage() {
                 Enter Brands to Analyze
               </h3>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {brands.map((brand, i) => (
                   <div key={i} className="flex gap-3 items-start">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex gap-3">
-                        <div className="flex-1">
+                    <div className="flex-1 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
                           <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
                             Brand Name
                           </label>
@@ -178,7 +273,7 @@ export default function HomePage() {
                             className="w-full bg-black-card border border-border-subtle text-white-full px-4 py-3 text-sm placeholder:text-white-dim/50 hover:border-border-strong focus:border-red-hot focus:bg-black-deep transition-all"
                           />
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
                             Website
                           </label>
@@ -191,6 +286,12 @@ export default function HomePage() {
                           />
                         </div>
                       </div>
+                      <CompanySearch brand={brand} index={i} onSelect={selectCompany} />
+                      {brand.facebookPageId && (
+                        <p className="text-[10px] text-orange-accent font-geist-mono">
+                          Verified: Page ID {brand.facebookPageId}
+                        </p>
+                      )}
                     </div>
                     {brands.length > 2 && (
                       <button
@@ -228,14 +329,12 @@ export default function HomePage() {
             </p>
           </div>
         ) : (
-          /* Progress View */
           <div className="max-w-2xl mx-auto">
             <div className="bg-black-deep border-2 border-red-hot p-8">
               <h3 className="text-xl font-bold text-red-hot uppercase mb-6">
                 Analyzing Brand DNA
               </h3>
 
-              {/* Progress bar */}
               <div className="mb-6">
                 <div className="flex justify-between text-xs text-white-dim uppercase tracking-wide mb-2">
                   <span>{currentStep}</span>
@@ -252,11 +351,10 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Animated dots */}
               <div className="flex items-center gap-2 justify-center">
                 <Loader2 className="h-5 w-5 animate-spin text-red-hot" />
                 <span className="text-sm text-white-muted">
-                  {progress < 80 ? "Collecting intelligence..." : "AIDEN analyzing..."}
+                  {progress < 75 ? "Collecting intelligence..." : "AIDEN analyzing..."}
                 </span>
               </div>
             </div>
@@ -264,7 +362,6 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t-2 border-red-hot bg-black-deep mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-xs text-white-dim uppercase tracking-wide">

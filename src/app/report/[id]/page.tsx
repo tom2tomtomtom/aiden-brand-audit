@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Share2 } from "lucide-react";
+import { ArrowLeft, Download, Clock, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
-import { ExportPdfButton } from "@/components/report/ExportPdfButton";
 import { ExecutiveSummary } from "@/components/report/ExecutiveSummary";
 import { BrandCards } from "@/components/report/BrandCards";
 import { VisualDna } from "@/components/report/VisualDna";
@@ -15,21 +14,34 @@ import { AdAnalytics } from "@/components/report/AdAnalytics";
 import { StrategicAnalysis } from "@/components/report/StrategicAnalysis";
 import { CompetitiveMatrix } from "@/components/report/CompetitiveMatrix";
 
-export default function ReportPage() {
+export default function SharedReportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [results, setResults] = useState<AuditResults | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("auditResults");
-    if (stored) {
-      setResults(JSON.parse(stored));
-    } else {
-      router.push("/");
+    async function fetchReport() {
+      try {
+        const res = await fetch(`/api/reports/${id}`);
+        if (!res.ok) {
+          setError("Report not found");
+          return;
+        }
+        const data = await res.json();
+        setResults(data);
+      } catch {
+        setError("Failed to load report");
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [router]);
+    fetchReport();
+  }, [id]);
 
-  if (!results) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-black-ink flex items-center justify-center">
         <div className="text-center">
@@ -38,6 +50,27 @@ export default function ReportPage() {
         </div>
       </div>
     );
+  }
+
+  if (error || !results) {
+    return (
+      <div className="min-h-screen bg-black-ink flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-hot text-lg font-bold uppercase mb-2">{error || "Report not found"}</p>
+          <button
+            onClick={() => router.push("/")}
+            className="text-xs text-orange-accent hover:text-red-hot uppercase tracking-wide"
+          >
+            Start New Audit
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function copyShareLink() {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Share link copied to clipboard");
   }
 
   const sections = [
@@ -70,22 +103,17 @@ export default function ReportPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-white-dim uppercase tracking-wide">
-                {results.brands.length} brands analyzed
-              </span>
-              {results.id && (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/report/${results.id}`);
-                    toast.success("Share link copied");
-                  }}
-                  className="flex items-center gap-2 bg-black-card text-white-muted px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
-                >
-                  <Share2 className="h-3 w-3" />
-                  Share
-                </button>
-              )}
-              <ExportPdfButton results={results} />
+              <button
+                onClick={copyShareLink}
+                className="flex items-center gap-2 bg-black-card text-white-muted px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
+              >
+                <Share2 className="h-3 w-3" />
+                Share
+              </button>
+              <button className="flex items-center gap-2 bg-red-hot text-white px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all">
+                <Download className="h-3 w-3" />
+                Export PDF
+              </button>
             </div>
           </div>
         </div>
@@ -122,8 +150,12 @@ export default function ReportPage() {
           {activeSection === "visual" && <VisualDna brands={results.brands} analysis={results.strategicAnalysis} />}
           {activeSection === "ads" && <AdGallery brands={results.brands} />}
           {activeSection === "analytics" && <AdAnalytics brands={results.brands} />}
-          {activeSection === "strategy" && <StrategicAnalysis analysis={results.strategicAnalysis} brands={results.brands} />}
-          {activeSection === "matrix" && <CompetitiveMatrix analysis={results.strategicAnalysis} brands={results.brands} />}
+          {activeSection === "strategy" && (
+            <StrategicAnalysis analysis={results.strategicAnalysis} brands={results.brands} />
+          )}
+          {activeSection === "matrix" && (
+            <CompetitiveMatrix analysis={results.strategicAnalysis} brands={results.brands} />
+          )}
         </div>
       </main>
 

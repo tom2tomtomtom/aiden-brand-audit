@@ -237,18 +237,108 @@ export async function collectAds(brandName: string, country = "US", maxAds = 50)
     const imageUrls = extractImageUrls(ad);
     const platforms = (ad.publisher_platform || ad.publisherPlatform || ["facebook"])
       .map((p: string) => p.toLowerCase());
+    const format = ad.snapshot?.display_format || "UNKNOWN";
+    const hasVideo = !!extractVideoUrl(ad);
+    const hasCards = (ad.snapshot?.cards?.length || 0) > 1;
 
     return {
       adId: getAdId(ad),
       adText: getBodyText(ad.snapshot?.body),
+      headline: ad.snapshot?.title || null,
       adImageUrl: imageUrls[0] || null,
       adVideoUrl: extractVideoUrl(ad),
       platforms,
       cta: ad.snapshot?.cta_text || null,
+      ctaType: ad.snapshot?.cta_type || null,
       startDate: ad.start_date ? new Date(ad.start_date * 1000).toISOString() : null,
       pageName: getPageName(ad),
       adUrl: ad.url || `https://www.facebook.com/ads/library/?id=${getAdId(ad)}`,
       allImageUrls: imageUrls,
+      displayFormat: format,
+      linkUrl: ad.snapshot?.link_url || null,
+      isVideo: hasVideo || format === "VIDEO",
+      isCarousel: hasCards || format === "MULTI_IMAGES",
     };
   });
+}
+
+export function computeAdAnalytics(ads: ReturnType<typeof collectAds> extends Promise<infer T> ? T : never) {
+  const totalAds = ads.length;
+  if (totalAds === 0) {
+    return {
+      totalAds: 0,
+      platformBreakdown: {},
+      ctaBreakdown: {},
+      formatBreakdown: {},
+      videoPercent: 0,
+      carouselPercent: 0,
+      imagePercent: 0,
+      avgCopyLength: 0,
+      dateRange: { earliest: null, latest: null },
+      topCtas: [],
+      topPlatforms: [],
+      confirmedPageName: null,
+    };
+  }
+
+  const platformCounts: Record<string, number> = {};
+  const ctaCounts: Record<string, number> = {};
+  const formatCounts: Record<string, number> = {};
+  let videoCount = 0;
+  let carouselCount = 0;
+  let imageOnlyCount = 0;
+  let totalCopyLength = 0;
+  const dates: string[] = [];
+  const pageNames: Record<string, number> = {};
+
+  for (const ad of ads) {
+    for (const p of ad.platforms) {
+      platformCounts[p] = (platformCounts[p] || 0) + 1;
+    }
+    if (ad.cta) {
+      const ctaKey = ad.cta.toUpperCase().replace(/\s+/g, "_");
+      ctaCounts[ctaKey] = (ctaCounts[ctaKey] || 0) + 1;
+    }
+    const fmt = ad.displayFormat || "UNKNOWN";
+    formatCounts[fmt] = (formatCounts[fmt] || 0) + 1;
+
+    if (ad.isVideo) videoCount++;
+    else if (ad.isCarousel) carouselCount++;
+    else imageOnlyCount++;
+
+    totalCopyLength += ad.adText.length;
+    if (ad.startDate) dates.push(ad.startDate);
+    if (ad.pageName) {
+      pageNames[ad.pageName] = (pageNames[ad.pageName] || 0) + 1;
+    }
+  }
+
+  dates.sort();
+
+  const topCtas = Object.entries(ctaCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([cta, count]) => ({ cta, count, percent: Math.round((count / totalAds) * 100) }));
+
+  const topPlatforms = Object.entries(platformCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([platform, count]) => ({ platform, count, percent: Math.round((count / totalAds) * 100) }));
+
+  const confirmedPageName = Object.entries(pageNames)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  return {
+    totalAds,
+    platformBreakdown: platformCounts,
+    ctaBreakdown: ctaCounts,
+    formatBreakdown: formatCounts,
+    videoPercent: Math.round((videoCount / totalAds) * 100),
+    carouselPercent: Math.round((carouselCount / totalAds) * 100),
+    imagePercent: Math.round((imageOnlyCount / totalAds) * 100),
+    avgCopyLength: Math.round(totalCopyLength / totalAds),
+    dateRange: { earliest: dates[0] || null, latest: dates[dates.length - 1] || null },
+    topCtas,
+    topPlatforms,
+    confirmedPageName,
+  };
 }

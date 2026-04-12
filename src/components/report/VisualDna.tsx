@@ -14,36 +14,59 @@ export function VisualDna({
         Visual DNA Comparison
       </h2>
 
-      {/* Color Palettes Side by Side */}
       <div className="bg-black-deep border-2 border-border-subtle p-6">
         <h3 className="text-sm font-bold text-orange-accent uppercase tracking-wide mb-6">
-          Color Palettes
+          Brand Color Palettes
         </h3>
         <div className="space-y-6">
           {brands.map((brand) => (
             <div key={brand.name}>
               <p className="text-xs text-white-dim uppercase tracking-wide mb-2">{brand.name}</p>
-              <div className="flex gap-2">
-                {brand.colors ? (
-                  [...brand.colors.primaryColors, ...brand.colors.secondaryColors].map((color, i) => (
-                    <div key={i} className="flex-1">
-                      <div
-                        className="h-16 border border-border-subtle flex items-end p-1"
-                        style={{ backgroundColor: color }}
-                      >
-                        <span
-                          className="text-[9px] font-geist-mono"
-                          style={{ color: getContrastColor(color) }}
+              {brand.colors ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    {[...brand.colors.primaryColors, ...brand.colors.secondaryColors].map((color, i) => (
+                      <div key={i} className="flex-1">
+                        <div
+                          className="h-16 border border-border-subtle flex items-end p-1"
+                          style={{ backgroundColor: color }}
                         >
-                          {color}
-                        </span>
+                          <span
+                            className="text-[9px] font-geist-mono"
+                            style={{ color: getContrastColor(color) }}
+                          >
+                            {color}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {brand.adColors && (
+                    <div>
+                      <p className="text-[9px] text-white-dim uppercase tracking-wide mb-1">Ad Creative Colors</p>
+                      <div className="flex gap-2">
+                        {[...brand.adColors.primaryColors, ...brand.adColors.secondaryColors].map((color, i) => (
+                          <div key={i} className="flex-1">
+                            <div
+                              className="h-10 border border-border-subtle flex items-end p-1"
+                              style={{ backgroundColor: color }}
+                            >
+                              <span
+                                className="text-[8px] font-geist-mono"
+                                style={{ color: getContrastColor(color) }}
+                              >
+                                {color}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-white-dim">No color data available</p>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-white-dim">No color data available</p>
+              )}
               {analysis.visualDna.colorStrategies[brand.name] && (
                 <p className="text-xs text-white-muted mt-2">
                   {analysis.visualDna.colorStrategies[brand.name]}
@@ -54,7 +77,6 @@ export function VisualDna({
         </div>
       </div>
 
-      {/* Visual Differentiation */}
       {analysis.visualDna.visualDifferentiation && (
         <div className="bg-black-card border-2 border-border-subtle p-6">
           <h3 className="text-sm font-bold text-orange-accent uppercase tracking-wide mb-3">
@@ -66,7 +88,6 @@ export function VisualDna({
         </div>
       )}
 
-      {/* Shared Patterns + Unique Elements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {analysis.visualDna.sharedPatterns.length > 0 && (
           <div className="bg-black-card border-2 border-border-subtle p-6">
@@ -103,23 +124,24 @@ export function VisualDna({
         </div>
       </div>
 
-      {/* Screenshot Galleries */}
-      {brands.some((b) => b.screenshots.length > 0) && (
+      {brands.some((b) => b.adCreativeUrls.length > 0) && (
         <div className="space-y-6">
           <h3 className="text-xl font-bold text-orange-accent uppercase tracking-tight">
-            Visual Assets
+            Ad Creative Gallery
           </h3>
           {brands.map((brand) =>
-            brand.screenshots.length > 0 ? (
+            brand.adCreativeUrls.length > 0 ? (
               <div key={brand.name}>
-                <p className="text-xs text-white-dim uppercase tracking-wide mb-3">{brand.name}</p>
+                <p className="text-xs text-white-dim uppercase tracking-wide mb-3">
+                  {brand.name} — {brand.adCreativeUrls.length} creatives
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {brand.screenshots.slice(0, 12).map((url, i) => (
-                    <div key={i} className="aspect-square bg-black-card border border-border-subtle overflow-hidden">
+                  {brand.adCreativeUrls.slice(0, 16).map((url, i) => (
+                    <div key={i} className="aspect-square bg-black-card border border-border-subtle overflow-hidden group">
                       <img
                         src={url}
                         alt={`${brand.name} ad creative ${i + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
                         loading="lazy"
                       />
                     </div>

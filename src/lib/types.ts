@@ -2,6 +2,7 @@ export interface BrandConfig {
   name: string;
   website: string;
   facebookPage?: string;
+  facebookPageId?: string;
 }
 
 export interface BrandLogo {
@@ -14,14 +15,35 @@ export interface BrandLogo {
 export interface BrandAd {
   adId: string;
   adText: string;
+  headline: string | null;
   adImageUrl: string | null;
   adVideoUrl: string | null;
   platforms: string[];
   cta: string | null;
+  ctaType: string | null;
   startDate: string | null;
   pageName: string | null;
   adUrl: string | null;
-  allImageUrls?: string[];
+  allImageUrls: string[];
+  displayFormat: string;
+  linkUrl: string | null;
+  isVideo: boolean;
+  isCarousel: boolean;
+}
+
+export interface AdAnalytics {
+  totalAds: number;
+  platformBreakdown: Record<string, number>;
+  ctaBreakdown: Record<string, number>;
+  formatBreakdown: Record<string, number>;
+  videoPercent: number;
+  carouselPercent: number;
+  imagePercent: number;
+  avgCopyLength: number;
+  dateRange: { earliest: string | null; latest: string | null };
+  topCtas: { cta: string; count: number; percent: number }[];
+  topPlatforms: { platform: string; count: number; percent: number }[];
+  confirmedPageName: string | null;
 }
 
 export interface ColorPalette {
@@ -36,8 +58,10 @@ export interface BrandData {
   website: string;
   logos: BrandLogo;
   ads: BrandAd[];
-  screenshots: string[];
+  adCreativeUrls: string[];
   colors: ColorPalette | null;
+  adColors: ColorPalette | null;
+  analytics: AdAnalytics;
 }
 
 export interface PhantomPerspective {
@@ -92,9 +116,11 @@ export interface AuditJob {
 }
 
 export interface AuditResults {
+  id: string;
   brands: BrandData[];
   strategicAnalysis: StrategicAnalysis;
   duration: number;
+  createdAt: string;
 }
 
 export type ProgressEvent = {

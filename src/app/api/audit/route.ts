@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { collectLogos } from "@/lib/apify";
-import { collectAds } from "@/lib/scrape-creators";
+import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
@@ -32,9 +32,8 @@ export async function POST(request: NextRequest) {
 
         for (let i = 0; i < totalBrands; i++) {
           const brand = brands[i];
-          const brandProgress = (i / totalBrands) * 80;
+          const brandProgress = (i / totalBrands) * 75;
 
-          // Collect logos
           send({
             type: "progress",
             step: `Discovering logos for ${brand.name}`,
@@ -49,11 +48,10 @@ export async function POST(request: NextRequest) {
             logos = { primaryLogo: null, logoVariants: [], favicon: null, brandName: brand.name };
           }
 
-          // Collect ads
           send({
             type: "progress",
             step: `Scraping Facebook ads for ${brand.name}`,
-            progress: brandProgress + 20,
+            progress: brandProgress + 15,
             detail: "Querying Facebook Ad Library",
           });
 
@@ -64,11 +62,13 @@ export async function POST(request: NextRequest) {
             ads = [];
           }
 
-          // Extract colors from logo
+          const analytics = computeAdAnalytics(ads);
+
           send({
             type: "progress",
             step: `Extracting color DNA for ${brand.name}`,
-            progress: brandProgress + 35,
+            progress: brandProgress + 30,
+            detail: "Analyzing logo and ad creative palettes",
           });
 
           let colors = null;
@@ -76,22 +76,30 @@ export async function POST(request: NextRequest) {
             try {
               colors = await extractColors(logos.primaryLogo);
             } catch {
-              // Color extraction failed
+              // Logo color extraction failed
             }
           }
 
-          // Collect screenshots of ad URLs
-          const screenshots: string[] = [];
-          const adImages = ads
-            .map((a) => a.adImageUrl)
+          let adColors = null;
+          const topAdImage = ads.find((a) => a.adImageUrl)?.adImageUrl;
+          if (topAdImage) {
+            try {
+              adColors = await extractColors(topAdImage);
+            } catch {
+              // Ad color extraction failed
+            }
+          }
+
+          const adCreativeUrls = ads
+            .flatMap((a) => a.allImageUrls)
             .filter(Boolean)
-            .slice(0, 12) as string[];
+            .slice(0, 24);
 
           send({
             type: "progress",
-            step: `Capturing ${brand.name} ad creatives`,
-            progress: brandProgress + 50,
-            detail: `${adImages.length} ad images found`,
+            step: `Compiled ${brand.name} intelligence`,
+            progress: brandProgress + 40,
+            detail: `${ads.length} ads, ${adCreativeUrls.length} images, ${analytics.videoPercent}% video`,
           });
 
           brandsData.push({
@@ -99,30 +107,49 @@ export async function POST(request: NextRequest) {
             website: brand.website,
             logos,
             ads,
-            screenshots: adImages.length > 0 ? adImages : screenshots,
+            adCreativeUrls,
             colors,
+            adColors,
+            analytics,
           });
         }
 
-        // Strategic analysis with AIDEN
         send({
           type: "progress",
           step: "AIDEN analyzing competitive landscape",
-          progress: 85,
+          progress: 80,
           detail: "Phantom brain processing strategic intelligence",
         });
 
         let strategicAnalysis;
         try {
-          const summaries = brandsData.map((b) => ({
+          const aidenInput = brandsData.map((b) => ({
             name: b.name,
-            adCount: b.ads.length,
-            screenshotCount: b.screenshots.length,
+            confirmedPageName: b.analytics.confirmedPageName,
+            adCount: b.analytics.totalAds,
             primaryColors: b.colors?.primaryColors || [],
-            adThemes: b.ads.slice(0, 10).map((a) => a.adText.slice(0, 200)),
+            adCreativeColors: b.adColors?.primaryColors || [],
+            platformMix: b.analytics.topPlatforms,
+            ctaDistribution: b.analytics.topCtas,
+            formatMix: {
+              videoPercent: b.analytics.videoPercent,
+              carouselPercent: b.analytics.carouselPercent,
+              imagePercent: b.analytics.imagePercent,
+            },
+            avgCopyLength: b.analytics.avgCopyLength,
+            dateRange: b.analytics.dateRange,
+            topAdCopy: b.ads
+              .filter((a) => a.adText.length > 50)
+              .sort((a, c) => c.adText.length - a.adText.length)
+              .slice(0, 5)
+              .map((a) => a.adText.slice(0, 500)),
+            topHeadlines: b.ads
+              .map((a) => a.headline)
+              .filter((h): h is string => !!h && h.length > 3)
+              .slice(0, 8),
           }));
 
-          const analysisJson = await analyzeWithAiden(summaries);
+          const analysisJson = await analyzeWithAiden(aidenInput);
           strategicAnalysis = JSON.parse(analysisJson);
         } catch (e: unknown) {
           console.error("[audit] AIDEN analysis failed:", e instanceof Error ? e.message : e);
@@ -151,10 +178,19 @@ export async function POST(request: NextRequest) {
         });
 
         const results: AuditResults = {
+          id: crypto.randomUUID(),
           brands: brandsData,
           strategicAnalysis,
           duration,
+          createdAt: new Date().toISOString(),
         };
+
+        try {
+          const { saveReport } = await import("@/lib/supabase/reports");
+          await saveReport(results);
+        } catch {
+          // Supabase not configured — session-only mode
+        }
 
         send({ type: "complete", results });
       } catch (error) {
