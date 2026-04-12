@@ -114,12 +114,21 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        redirect: "error",
         body: JSON.stringify({ plan }),
       });
 
       if (res.status === 401) {
         toast.error("Session expired. Redirecting to login...");
         router.push("/login");
+        return;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        let errorMsg = `Server error (${res.status})`;
+        try { errorMsg = JSON.parse(text).error || errorMsg; } catch { /* not JSON */ }
+        toast.error(errorMsg);
         return;
       }
 
@@ -135,7 +144,12 @@ export default function PricingPage() {
       }
     } catch (err) {
       console.error("Checkout error:", err);
-      toast.error("Something went wrong. Please try again.");
+      if (err instanceof TypeError && err.message.includes("redirect")) {
+        toast.error("Session expired. Please sign in again.");
+        router.push("/login");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(null);
     }
