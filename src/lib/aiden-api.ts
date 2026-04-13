@@ -58,6 +58,13 @@ export interface BrandAnalysisInput {
   socialSentiment: {
     totalPosts: number;
     totalEngagement: number;
+    overallScore: number | null;
+    overallLabel: string;
+    brandPerception: string;
+    reputationRisks: string[];
+    advocacyDrivers: string[];
+    positiveThemes: string[];
+    negativeThemes: string[];
     platformBreakdown: { platform: string; posts: number; engagement: number }[];
     topTikTokContent: string[];
     topRedditDiscussions: string[];
@@ -99,16 +106,26 @@ export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promis
       }
       if (b.socialSentiment) {
         const ss = b.socialSentiment;
-        parts.push(`- Social sentiment: ${ss.totalPosts} organic posts scraped, ${ss.totalEngagement.toLocaleString()} total engagement`);
-        parts.push(`- Platform breakdown: ${ss.platformBreakdown.map(p => `${p.platform}: ${p.posts} posts, ${p.engagement.toLocaleString()} engagement`).join(" | ")}`);
-        if (ss.topTikTokContent.length > 0) {
-          parts.push(`- Top TikTok content:\n${ss.topTikTokContent.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+        parts.push(`\n--- PUBLIC SENTIMENT (from organic social media) ---`);
+        parts.push(`- Sentiment score: ${ss.overallScore ?? "N/A"}/100 (${ss.overallLabel})`);
+        parts.push(`- ${ss.totalPosts} organic posts scraped across ${ss.platformBreakdown.map(p => `${p.platform} (${p.posts})`).join(", ")}`);
+        if (ss.brandPerception) {
+          parts.push(`- Public perception: ${ss.brandPerception}`);
         }
-        if (ss.topInstagramPosts.length > 0) {
-          parts.push(`- Top Instagram posts:\n${ss.topInstagramPosts.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+        if (ss.positiveThemes.length > 0) {
+          parts.push(`- What people LOVE: ${ss.positiveThemes.join(" | ")}`);
+        }
+        if (ss.negativeThemes.length > 0) {
+          parts.push(`- What people HATE: ${ss.negativeThemes.join(" | ")}`);
+        }
+        if (ss.reputationRisks.length > 0) {
+          parts.push(`- Reputation risks: ${ss.reputationRisks.join("; ")}`);
+        }
+        if (ss.advocacyDrivers.length > 0) {
+          parts.push(`- Advocacy drivers: ${ss.advocacyDrivers.join("; ")}`);
         }
         if (ss.topRedditDiscussions.length > 0) {
-          parts.push(`- Top Reddit discussions:\n${ss.topRedditDiscussions.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
+          parts.push(`- Reddit discussions:\n${ss.topRedditDiscussions.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`);
         }
       }
       return parts.join("\n");
@@ -124,8 +141,9 @@ INSTRUCTIONS:
 - You MUST respond with ONLY a valid JSON object. No text before or after.
 - No markdown fences. No explanation. Just the JSON.
 - Use the exact brand names from the data as keys.
-- Ground your analysis in the actual data provided (platform mix, CTA patterns, copy samples, color palettes, format choices).
+- Ground your analysis in the actual data provided (platform mix, CTA patterns, copy samples, color palettes, format choices, AND public sentiment data).
 - Be specific and cite evidence from the data. Don't be generic.
+- IMPORTANT: Where public sentiment data is available, integrate it into your analysis. Note gaps between how the brand presents itself (ads) vs how the public actually perceives it. Flag reputation risks and advocacy opportunities.
 
 REQUIRED JSON STRUCTURE:
 {"executiveSummary":{"overview":"2-3 sentence competitive overview grounded in the data","keyFindings":["finding1","finding2","finding3","finding4","finding5"],"strategicImplications":"paragraph on strategic implications"},"visualDna":{"colorStrategies":{"BrandName":"color strategy description based on actual palette data"},"visualDifferentiation":"paragraph on visual differences citing specific colors and format choices","sharedPatterns":["shared pattern 1","shared pattern 2"],"uniqueElements":{"BrandName":["unique element 1","unique element 2"]}},"creativeDna":{"messagingThemes":{"BrandName":["theme 1 from actual copy","theme 2"]},"toneAndVoice":{"BrandName":"tone description based on actual ad copy samples"},"creativeDirections":{"BrandName":["direction 1","direction 2"]}},"strategicSynthesis":{"competitivePositioning":{"BrandName":{"strengths":["s1","s2"],"weaknesses":["w1","w2"],"marketPosition":"position description"}},"whiteSpaceOpportunities":["opportunity 1 based on gaps in data","opportunity 2"],"recommendedActions":[{"action":"specific action","rationale":"why, citing data","expectedImpact":"impact"}]}}`;

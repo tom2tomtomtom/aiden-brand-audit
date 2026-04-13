@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
-import { collectSocialSentiment } from "@/lib/social-scraper";
+import { collectSocialPosts } from "@/lib/social-scraper";
+import { analyzeSentiment } from "@/lib/sentiment-analyzer";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
 import { gatherBrandIntel } from "@/lib/brand-intel";
@@ -156,25 +157,67 @@ export async function POST(request: NextRequest) {
 
           send({
             type: "progress",
-            step: `Scraping social sentiment for ${brand.name}`,
+            step: `Scraping social conversations for ${brand.name}`,
             progress: brandProgress + 50,
-            detail: "TikTok, Instagram & Reddit organic conversations",
+            detail: "TikTok, Instagram & Reddit organic posts",
           });
 
-          let social = null;
+          let social: import("@/lib/types").SocialSentiment | null = null;
           try {
-            social = await collectSocialSentiment(brand.name);
+            const allPosts = await collectSocialPosts(brand.name);
+            const tiktok = allPosts.filter(p => p.platform === "tiktok");
+            const instagram = allPosts.filter(p => p.platform === "instagram");
+            const reddit = allPosts.filter(p => p.platform === "reddit");
+
+            const computeEng = (p: typeof allPosts[0]) => p.likes + p.comments + p.shares;
+            const totalEngagement = allPosts.reduce((s, p) => s + computeEng(p), 0);
+            const platformBreakdown = [
+              { platform: "tiktok", posts: tiktok.length, engagement: tiktok.reduce((s, p) => s + computeEng(p), 0) },
+              { platform: "instagram", posts: instagram.length, engagement: instagram.reduce((s, p) => s + computeEng(p), 0) },
+              { platform: "reddit", posts: reddit.length, engagement: reddit.reduce((s, p) => s + computeEng(p), 0) },
+            ];
+            const topPost = allPosts.length > 0
+              ? allPosts.reduce((best, p) => computeEng(p) > computeEng(best) ? p : best)
+              : null;
+
+            send({
+              type: "progress",
+              step: `Analyzing sentiment for ${brand.name}`,
+              progress: brandProgress + 55,
+              detail: `${allPosts.length} posts collected — Claude analyzing public perception`,
+            });
+
+            let sentiment = null;
+            try {
+              sentiment = await analyzeSentiment(brand.name, allPosts);
+            } catch {
+              // Sentiment analysis is non-critical
+            }
+
+            social = {
+              tiktok,
+              instagram,
+              reddit,
+              sentiment,
+              summary: {
+                totalPosts: allPosts.length,
+                totalEngagement,
+                platformBreakdown,
+                topPost,
+              },
+            };
           } catch {
             // Social scraping is non-critical
           }
 
           const socialCount = social?.summary.totalPosts || 0;
+          const sentimentLabel = social?.sentiment?.overallLabel || "pending";
 
           send({
             type: "progress",
             step: `Compiled ${brand.name} intelligence`,
             progress: brandProgress + 60,
-            detail: `${ads.length} ads, ${intelCount} press items, ${socialCount} social posts`,
+            detail: `${ads.length} ads, ${intelCount} press items, ${socialCount} social posts (sentiment: ${sentimentLabel})`,
           });
 
           brandsData.push({
@@ -231,6 +274,13 @@ export async function POST(request: NextRequest) {
             socialSentiment: b.social ? {
               totalPosts: b.social.summary.totalPosts,
               totalEngagement: b.social.summary.totalEngagement,
+              overallScore: b.social.sentiment?.overallScore ?? null,
+              overallLabel: b.social.sentiment?.overallLabel ?? "unknown",
+              brandPerception: b.social.sentiment?.brandPerception ?? "",
+              reputationRisks: b.social.sentiment?.reputationRisks ?? [],
+              advocacyDrivers: b.social.sentiment?.advocacyDrivers ?? [],
+              positiveThemes: b.social.sentiment?.themes.positive.map(t => `${t.theme}: ${t.example}`) ?? [],
+              negativeThemes: b.social.sentiment?.themes.negative.map(t => `${t.theme}: ${t.example}`) ?? [],
               platformBreakdown: b.social.summary.platformBreakdown,
               topTikTokContent: b.social.tiktok.slice(0, 3).map(p => `@${p.author}: ${p.text.slice(0, 100)} (${p.views} views, ${p.likes} likes)`),
               topRedditDiscussions: b.social.reddit.slice(0, 3).map(p => `${p.text.slice(0, 120)} (score: ${p.likes}, ${p.comments} comments)`),

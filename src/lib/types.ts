@@ -78,10 +78,48 @@ export interface SocialPost {
   upvoteRatio?: number;
 }
 
+export interface AnalyzedPost extends SocialPost {
+  sentiment: "positive" | "negative" | "neutral" | "mixed";
+  sentimentScore: number;
+}
+
+export interface SentimentAnalysis {
+  overallScore: number;
+  overallLabel: "very_negative" | "negative" | "mixed" | "neutral" | "positive" | "very_positive";
+  totalAnalyzed: number;
+  sentimentBreakdown: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    mixed: number;
+  };
+  themes: {
+    positive: { theme: string; frequency: string; example: string }[];
+    negative: { theme: string; frequency: string; example: string }[];
+  };
+  notableQuotes: {
+    text: string;
+    sentiment: "positive" | "negative" | "mixed";
+    platform: string;
+    author: string;
+    context: string;
+  }[];
+  brandPerception: string;
+  reputationRisks: string[];
+  advocacyDrivers: string[];
+  platformInsights: {
+    platform: string;
+    dominantSentiment: string;
+    keyObservation: string;
+  }[];
+  posts: AnalyzedPost[];
+}
+
 export interface SocialSentiment {
   tiktok: SocialPost[];
   instagram: SocialPost[];
   reddit: SocialPost[];
+  sentiment: SentimentAnalysis | null;
   summary: {
     totalPosts: number;
     totalEngagement: number;

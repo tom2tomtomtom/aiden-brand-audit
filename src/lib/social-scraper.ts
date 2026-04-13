@@ -1,5 +1,5 @@
 /**
- * Social Media Sentiment Scraper
+ * Social Media Scraper
  * Scrapes TikTok, Instagram, and Reddit via ScrapeCreators API
  * to gather organic social conversation data for brand analysis.
  */
@@ -51,11 +51,11 @@ export async function scrapeTikTok(brandName: string): Promise<SocialPost[]> {
 
   try {
     const data = await fetchApi<TikTokResponse>(url);
-    return (data.aweme_list || []).slice(0, 15).map((p) => ({
+    return (data.aweme_list || []).slice(0, 20).map((p) => ({
       platform: "tiktok" as const,
       id: p.aweme_id,
       author: `@${p.author.unique_id}`,
-      text: p.desc.slice(0, 300),
+      text: p.desc.slice(0, 500),
       url: `https://www.tiktok.com/@${p.author.unique_id}/video/${p.aweme_id}`,
       views: p.statistics.play_count,
       likes: p.statistics.digg_count,
@@ -92,7 +92,7 @@ export async function scrapeInstagram(brandName: string): Promise<SocialPost[]> 
 
   try {
     const data = await fetchApi<InstagramResponse>(url);
-    return (data.posts || []).slice(0, 15).map((p) => {
+    return (data.posts || []).slice(0, 20).map((p) => {
       const captionText = typeof p.caption === "object" && p.caption?.text
         ? p.caption.text
         : "";
@@ -105,7 +105,7 @@ export async function scrapeInstagram(brandName: string): Promise<SocialPost[]> 
         platform: "instagram" as const,
         id: String(p.pk),
         author: `@${username}`,
-        text: captionText.slice(0, 300),
+        text: captionText.slice(0, 500),
         url: postUrl,
         views: p.play_count || 0,
         likes: p.like_count || 0,
@@ -144,59 +144,50 @@ export async function scrapeReddit(brandName: string): Promise<SocialPost[]> {
 
   try {
     const data = await fetchApi<RedditResponse>(url);
-    return (data.posts || []).slice(0, 15).map((p) => ({
-      platform: "reddit" as const,
-      id: p.id,
-      author: `u/${p.author}`,
-      text: `[r/${p.subreddit}] ${p.title}${p.selftext ? ` — ${p.selftext.slice(0, 200)}` : ""}`.slice(0, 300),
-      url: p.url.startsWith("http") ? p.url : `https://www.reddit.com${p.url}`,
-      views: 0,
-      likes: p.score,
-      shares: 0,
-      comments: p.num_comments,
-      subreddit: p.subreddit,
-      upvoteRatio: p.upvote_ratio,
-    }));
+    return (data.posts || []).slice(0, 20).map((p) => {
+      const selftext = p.selftext?.slice(0, 400) || "";
+      const fullText = selftext
+        ? `${p.title} — ${selftext}`
+        : p.title;
+
+      return {
+        platform: "reddit" as const,
+        id: p.id,
+        author: `u/${p.author}`,
+        text: fullText.slice(0, 500),
+        url: p.url.startsWith("http") ? p.url : `https://www.reddit.com${p.url}`,
+        views: 0,
+        likes: p.score,
+        shares: 0,
+        comments: p.num_comments,
+        subreddit: p.subreddit,
+        upvoteRatio: p.upvote_ratio,
+      };
+    });
   } catch (e) {
     console.error(`[social] Reddit scrape failed for ${brandName}:`, e);
     return [];
   }
 }
 
-// --- Types ---
+// --- Helpers ---
 
-export interface SocialPost {
-  platform: "tiktok" | "instagram" | "reddit";
-  id: string;
-  author: string;
-  text: string;
-  url: string;
-  views: number;
-  likes: number;
-  shares: number;
-  comments: number;
-  region?: string;
-  subreddit?: string;
-  upvoteRatio?: number;
-}
-
-export interface SocialSentiment {
-  tiktok: SocialPost[];
-  instagram: SocialPost[];
-  reddit: SocialPost[];
-  summary: {
-    totalPosts: number;
-    totalEngagement: number;
-    platformBreakdown: { platform: string; posts: number; engagement: number }[];
-    topPost: SocialPost | null;
-  };
-}
+import type { SocialPost, SocialSentiment } from "./types";
 
 function computeEngagement(post: SocialPost): number {
   return post.likes + post.comments + post.shares;
 }
 
 // --- Main collector ---
+
+export async function collectSocialPosts(brandName: string): Promise<SocialPost[]> {
+  const [tiktok, instagram, reddit] = await Promise.all([
+    scrapeTikTok(brandName),
+    scrapeInstagram(brandName),
+    scrapeReddit(brandName),
+  ]);
+  return [...tiktok, ...instagram, ...reddit];
+}
 
 export async function collectSocialSentiment(brandName: string): Promise<SocialSentiment> {
   const [tiktok, instagram, reddit] = await Promise.all([
@@ -228,6 +219,7 @@ export async function collectSocialSentiment(brandName: string): Promise<SocialS
     tiktok,
     instagram,
     reddit,
+    sentiment: null,
     summary: {
       totalPosts: allPosts.length,
       totalEngagement,
