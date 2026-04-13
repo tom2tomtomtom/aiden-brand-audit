@@ -42,24 +42,25 @@ function SentimentGauge({ score, label }: { score: number; label: string }) {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className={`text-4xl font-bold font-geist-mono ${gaugeColor}`}>
+      <p className="text-[10px] text-white-dim uppercase tracking-widest mb-1">Sentiment Score</p>
+      <div className={`text-5xl font-bold font-geist-mono ${gaugeColor}`}>
         {score > 0 ? "+" : ""}{score}
       </div>
-      <div className="text-xs text-white-dim uppercase tracking-wide">{displayLabel}</div>
-      <div className="w-full max-w-xs h-2 bg-black-card border border-border-subtle relative mt-1">
+      <div className={`text-sm font-bold uppercase tracking-wide ${gaugeColor}`}>{displayLabel}</div>
+      <div className="w-full max-w-sm h-3 bg-black-card border border-border-subtle relative mt-2">
         <div
           className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 via-amber-500 to-emerald-500 opacity-30"
           style={{ width: "100%" }}
         />
         <div
-          className={`absolute top-[-3px] w-3 h-3 border-2 border-white-full ${score >= 0 ? "bg-emerald-400" : "bg-red-400"}`}
+          className={`absolute top-[-4px] w-4 h-4 border-2 border-white-full ${score >= 0 ? "bg-emerald-400" : "bg-red-400"}`}
           style={{ left: `${Math.min(Math.max(normalizedPosition, 2), 98)}%`, transform: "translateX(-50%)" }}
         />
       </div>
-      <div className="flex justify-between w-full max-w-xs text-[9px] text-white-dim font-geist-mono">
-        <span>-100</span>
+      <div className="flex justify-between w-full max-w-sm text-[10px] text-white-dim font-geist-mono">
+        <span>-100 Negative</span>
         <span>0</span>
-        <span>+100</span>
+        <span>+100 Positive</span>
       </div>
     </div>
   );
@@ -347,17 +348,24 @@ export function SocialSentiment({ brands }: { brands: BrandData[] }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {brands.map((brand) => {
             const s = brand.social?.sentiment;
-            if (!s) return null;
             return (
               <div key={brand.name} className="bg-black-deep border-2 border-border-subtle p-6">
                 <h3 className="text-lg font-bold text-orange-accent uppercase tracking-tight mb-4">
                   {brand.name}
                 </h3>
-                <SentimentGauge score={s.overallScore} label={s.overallLabel} />
-                <div className="mt-4">
-                  <SentimentBreakdown breakdown={s.sentimentBreakdown} />
-                </div>
-                <p className="text-xs text-white-muted mt-4 leading-relaxed">{s.brandPerception}</p>
+                {s ? (
+                  <>
+                    <SentimentGauge score={s.overallScore} label={s.overallLabel} />
+                    <div className="mt-4">
+                      <SentimentBreakdown breakdown={s.sentimentBreakdown} />
+                    </div>
+                    <p className="text-xs text-white-muted mt-4 leading-relaxed">{s.brandPerception}</p>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-white-dim">No sentiment data available</p>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -367,7 +375,15 @@ export function SocialSentiment({ brands }: { brands: BrandData[] }) {
       {/* Per-brand detailed view */}
       {displayBrands.map((brand) => {
         const s = brand.social?.sentiment;
-        if (!s || !brand.social) return null;
+        if (!brand.social || !s) {
+          return (
+            <div key={brand.name} className="bg-black-deep border-2 border-border-subtle p-8 text-center">
+              <TrendingUp className="h-6 w-6 text-white-dim mx-auto mb-3" />
+              <p className="text-sm text-white-muted">No sentiment data for {brand.name}</p>
+              <p className="text-xs text-white-dim mt-1">Social analysis was not available for this audit.</p>
+            </div>
+          );
+        }
 
         const allPosts = s.posts || [];
         const filteredPosts = sentimentFilter === "all"

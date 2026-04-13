@@ -21,6 +21,7 @@ export default function ReportPage() {
   const router = useRouter();
   const [results, setResults] = useState<AuditResults | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("auditResults");
@@ -81,12 +82,18 @@ export default function ReportPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(`${window.location.origin}/report/${results.id}`);
+                    setCopied(true);
                     toast.success("Share link copied");
+                    setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="flex items-center gap-2 bg-black-card text-white-muted px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
+                  className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 transition-all ${
+                    copied
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-400"
+                      : "bg-black-card text-white-muted border-border-subtle hover:border-orange-accent"
+                  }`}
                 >
                   <Share2 className="h-3 w-3" />
-                  Share
+                  {copied ? "Copied!" : "Share"}
                 </button>
               )}
               <ExportPdfButton results={results} />

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -12,16 +11,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     const supabase = createClient();
-    if (!supabase) { toast.error("Auth not configured"); return; }
+    if (!supabase) { setError("Auth not configured"); return; }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast.error(error.message);
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) {
+      setError(authError.message === "Invalid login credentials"
+        ? "Incorrect email or password"
+        : authError.message);
       setLoading(false);
     } else {
       router.push("/dashboard");
@@ -69,6 +72,12 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
+
+          {error && (
+            <div className="bg-red-500/10 border-2 border-red-500/30 px-4 py-3">
+              <p className="text-sm text-red-400 font-bold">{error}</p>
+            </div>
+          )}
 
           <button
             type="submit"

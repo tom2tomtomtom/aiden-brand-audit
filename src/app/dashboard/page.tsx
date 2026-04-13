@@ -174,32 +174,33 @@ function DashboardContent() {
     }
   }, [searchParams]);
 
+  async function refreshData() {
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setUserEmail(user.email ?? null);
+
+    try {
+      const res = await fetch("/api/user-plan");
+      if (res.ok) setPlanLimits(await res.json());
+    } catch { /* non-critical */ }
+
+    try {
+      const res = await fetch("/api/reports");
+      if (res.ok) setPastReports(await res.json());
+    } catch { /* non-critical */ }
+    setReportsLoading(false);
+  }
+
   useEffect(() => {
-    async function loadUserData() {
-      const supabase = createClient();
-      if (!supabase) return;
+    refreshData();
+  }, []);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email ?? null);
-
-      try {
-        const res = await fetch("/api/user-plan");
-        if (res.ok) {
-          const data = await res.json();
-          setPlanLimits(data);
-        }
-      } catch { /* non-critical */ }
-
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setPastReports(data);
-        }
-      } catch { /* non-critical */ }
-      setReportsLoading(false);
-    }
-    loadUserData();
+  useEffect(() => {
+    function onFocus() { refreshData(); }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   async function handleSignOut() {

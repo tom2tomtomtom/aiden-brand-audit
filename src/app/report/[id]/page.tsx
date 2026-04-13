@@ -23,6 +23,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchReport() {
@@ -72,7 +73,9 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
 
   function copyShareLink() {
     navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
     toast.success("Share link copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
   }
 
   const sections = [
@@ -109,10 +112,14 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center gap-3">
               <button
                 onClick={copyShareLink}
-                className="flex items-center gap-2 bg-black-card text-white-muted px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 transition-all ${
+                  copied
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-400"
+                    : "bg-black-card text-white-muted border-border-subtle hover:border-orange-accent"
+                }`}
               >
                 <Share2 className="h-3 w-3" />
-                Share
+                {copied ? "Copied!" : "Share"}
               </button>
               <button className="flex items-center gap-2 bg-red-hot text-white px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all">
                 <Download className="h-3 w-3" />

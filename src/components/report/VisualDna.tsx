@@ -19,61 +19,69 @@ export function VisualDna({
           Brand Color Palettes
         </h3>
         <div className="space-y-6">
-          {brands.map((brand) => (
-            <div key={brand.name}>
-              <p className="text-xs text-white-dim uppercase tracking-wide mb-2">{brand.name}</p>
-              {brand.colors ? (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    {[...brand.colors.primaryColors, ...brand.colors.secondaryColors].map((color, i) => (
-                      <div key={i} className="flex-1">
-                        <div
-                          className="h-16 border border-border-subtle flex items-end p-1"
-                          style={{ backgroundColor: color }}
-                        >
-                          <span
-                            className="text-[9px] font-geist-mono"
-                            style={{ color: getContrastColor(color) }}
-                          >
-                            {color}
-                          </span>
+          {brands.map((brand) => {
+            const hasColors = brand.colors || brand.adColors;
+            return (
+              <div key={brand.name}>
+                <p className="text-xs text-white-dim uppercase tracking-wide mb-2">{brand.name}</p>
+                {hasColors ? (
+                  <div className="space-y-2">
+                    {brand.colors && (
+                      <div>
+                        <p className="text-[9px] text-white-dim uppercase tracking-wide mb-1">Brand Colors</p>
+                        <div className="flex gap-2">
+                          {[...brand.colors.primaryColors, ...brand.colors.secondaryColors].map((color, i) => (
+                            <div key={i} className="flex-1">
+                              <div
+                                className="h-16 border border-border-subtle flex items-end p-1"
+                                style={{ backgroundColor: color }}
+                              >
+                                <span
+                                  className="text-[9px] font-geist-mono"
+                                  style={{ color: getContrastColor(color) }}
+                                >
+                                  {color}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  {brand.adColors && (
-                    <div>
-                      <p className="text-[9px] text-white-dim uppercase tracking-wide mb-1">Ad Creative Colors</p>
-                      <div className="flex gap-2">
-                        {[...brand.adColors.primaryColors, ...brand.adColors.secondaryColors].map((color, i) => (
-                          <div key={i} className="flex-1">
-                            <div
-                              className="h-10 border border-border-subtle flex items-end p-1"
-                              style={{ backgroundColor: color }}
-                            >
-                              <span
-                                className="text-[8px] font-geist-mono"
-                                style={{ color: getContrastColor(color) }}
+                    )}
+                    {brand.adColors && (
+                      <div>
+                        <p className="text-[9px] text-white-dim uppercase tracking-wide mb-1">Ad Creative Colors</p>
+                        <div className="flex gap-2">
+                          {[...brand.adColors.primaryColors, ...brand.adColors.secondaryColors].map((color, i) => (
+                            <div key={i} className="flex-1">
+                              <div
+                                className={`${brand.colors ? "h-10" : "h-16"} border border-border-subtle flex items-end p-1`}
+                                style={{ backgroundColor: color }}
                               >
-                                {color}
-                              </span>
+                                <span
+                                  className="text-[8px] font-geist-mono"
+                                  style={{ color: getContrastColor(color) }}
+                                >
+                                  {color}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-white-dim">No color data available</p>
-              )}
-              {analysis.visualDna.colorStrategies[brand.name] && (
-                <p className="text-xs text-white-muted mt-2">
-                  {analysis.visualDna.colorStrategies[brand.name]}
-                </p>
-              )}
-            </div>
-          ))}
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white-dim">No color data available</p>
+                )}
+                {analysis.visualDna.colorStrategies[brand.name] && (
+                  <p className="text-xs text-white-muted mt-2">
+                    {analysis.visualDna.colorStrategies[brand.name]}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
