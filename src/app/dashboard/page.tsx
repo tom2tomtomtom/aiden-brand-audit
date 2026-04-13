@@ -426,6 +426,23 @@ function DashboardContent() {
                 ))}
               </div>
 
+              {planLimits && planLimits.limit !== null && planLimits.used >= planLimits.limit && (
+                <div className="mt-6 p-4 border-2 border-orange-accent bg-orange-accent/5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-orange-accent">You&apos;ve used all {planLimits.limit} audits on your {planLimits.plan} plan</p>
+                    <p className="text-xs text-white-dim mt-1">
+                      {planLimits.resetType === "monthly" ? "Resets next month, or upgrade now for more." : "Upgrade to unlock more audits."}
+                    </p>
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className="flex-shrink-0 bg-orange-accent text-black-ink px-5 py-2.5 text-xs font-bold uppercase tracking-wide hover:bg-yellow-electric transition-colors"
+                  >
+                    Upgrade Plan
+                  </Link>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-border-subtle">
                 <button
                   onClick={addBrand}
@@ -469,7 +486,7 @@ function DashboardContent() {
               <div className="flex items-center gap-2 justify-center">
                 <Loader2 className="h-5 w-5 animate-spin text-red-hot" />
                 <span className="text-sm text-white-muted">
-                  {progress < 75 ? "Collecting intelligence..." : "AIDEN analyzing..."}
+                  {progress < 75 ? "Collecting intelligence..." : "Generating strategic analysis..."}
                 </span>
               </div>
             </div>

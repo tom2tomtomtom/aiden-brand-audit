@@ -5,5 +5,6 @@ export async function GET() {
     status: "ok",
     timestamp: Date.now(),
     service: "brandaudit",
+    version: "2.1.0",
   });
 }

@@ -1,42 +1,8 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { extractAndRepairJson } from "./json-repair";
 
 const AIDEN_API_BASE = process.env.AIDEN_API_URL || "https://aiden-api-production.up.railway.app";
 const AIDEN_API_KEY = process.env.AIDEN_API_KEY || "";
-
-async function callAidenAPI<T>(path: string, body: unknown, timeoutMs = 120000): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(`${AIDEN_API_BASE}/api/v1${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": AIDEN_API_KEY,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`AIDEN API ${path} failed (${response.status}): ${text}`);
-    }
-
-    return response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-export interface AidenChatResponse {
-  success: boolean;
-  data: {
-    content: string;
-    metadata?: unknown;
-  };
-}
-
 
 export interface BrandAnalysisInput {
   name: string;
@@ -72,8 +38,8 @@ export interface BrandAnalysisInput {
   } | null;
 }
 
-export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promise<string> {
-  const brandSummary = brandsData
+function buildBrandSummary(brandsData: BrandAnalysisInput[]): string {
+  return brandsData
     .map((b) => {
       const parts = [
         `Brand: ${b.name}${b.confirmedPageName ? ` (Facebook Page: ${b.confirmedPageName})` : ""}`,
@@ -131,11 +97,9 @@ export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promis
       return parts.join("\n");
     })
     .join("\n\n");
+}
 
-  const message = `TASK: Produce a competitive brand DNA analysis as a JSON object.
-
-DATA:
-${brandSummary}
+const ANALYSIS_PROMPT = `TASK: Produce a competitive brand DNA analysis as a JSON object.
 
 INSTRUCTIONS:
 - You MUST respond with ONLY a valid JSON object. No text before or after.
@@ -148,18 +112,81 @@ INSTRUCTIONS:
 REQUIRED JSON STRUCTURE:
 {"executiveSummary":{"overview":"2-3 sentence competitive overview grounded in the data","keyFindings":["finding1","finding2","finding3","finding4","finding5"],"strategicImplications":"paragraph on strategic implications"},"visualDna":{"colorStrategies":{"BrandName":"color strategy description based on actual palette data"},"visualDifferentiation":"paragraph on visual differences citing specific colors and format choices","sharedPatterns":["shared pattern 1","shared pattern 2"],"uniqueElements":{"BrandName":["unique element 1","unique element 2"]}},"creativeDna":{"messagingThemes":{"BrandName":["theme 1 from actual copy","theme 2"]},"toneAndVoice":{"BrandName":"tone description based on actual ad copy samples"},"creativeDirections":{"BrandName":["direction 1","direction 2"]}},"strategicSynthesis":{"competitivePositioning":{"BrandName":{"strengths":["s1","s2"],"weaknesses":["w1","w2"],"marketPosition":"position description"}},"whiteSpaceOpportunities":["opportunity 1 based on gaps in data","opportunity 2"],"recommendedActions":[{"action":"specific action","rationale":"why, citing data","expectedImpact":"impact"}]}}`;
 
-  const result = await callAidenAPI<AidenChatResponse>(
-    "/chat",
-    { message, context: { brandsData } },
-    300000
-  );
+async function analyzeWithClaude(brandsData: BrandAnalysisInput[]): Promise<string> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const brandSummary = buildBrandSummary(brandsData);
 
-  const raw = result.data.content;
+  console.log("[aiden] Using Claude fallback for strategic analysis");
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8000,
+    messages: [
+      {
+        role: "user",
+        content: `${ANALYSIS_PROMPT}\n\nDATA:\n${brandSummary}`,
+      },
+    ],
+  });
+
+  const raw = response.content[0].type === "text" ? response.content[0].text : "";
   const jsonStr = extractAndRepairJson(raw);
-
   JSON.parse(jsonStr);
-
   return jsonStr;
+}
+
+interface AidenChatResponse {
+  success: boolean;
+  data: { content: string; metadata?: unknown };
+}
+
+async function analyzeWithAidenAPI(brandsData: BrandAnalysisInput[]): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const brandSummary = buildBrandSummary(brandsData);
+    const message = `${ANALYSIS_PROMPT}\n\nDATA:\n${brandSummary}`;
+
+    const response = await fetch(`${AIDEN_API_BASE}/api/v1/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": AIDEN_API_KEY,
+      },
+      body: JSON.stringify({ message, context: { brandsData } }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`AIDEN API failed (${response.status}): ${text}`);
+    }
+
+    const result: AidenChatResponse = await response.json();
+    const raw = result.data.content;
+    const jsonStr = extractAndRepairJson(raw);
+    JSON.parse(jsonStr);
+    return jsonStr;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promise<string> {
+  if (AIDEN_API_KEY) {
+    try {
+      console.log("[aiden] Trying AIDEN API...");
+      return await analyzeWithAidenAPI(brandsData);
+    } catch (e) {
+      console.warn("[aiden] AIDEN failed, falling back to Claude:", e instanceof Error ? e.message : e);
+    }
+  } else {
+    console.log("[aiden] No AIDEN API key — using Claude directly");
+  }
+
+  console.log("[aiden] Starting Claude fallback analysis...");
+  return await analyzeWithClaude(brandsData);
 }
 
 export async function getAidenHealth(): Promise<boolean> {

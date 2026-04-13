@@ -234,19 +234,19 @@ export async function POST(request: NextRequest) {
 
         send({
           type: "progress",
-          step: "AIDEN analyzing competitive landscape",
+          step: "Analyzing competitive landscape",
           progress: 80,
-          detail: "Phantom brain processing strategic intelligence — this step takes 60-90 seconds",
+          detail: "Synthesizing strategic intelligence — this step takes 30-60 seconds",
         });
 
         const aidenTicker = setInterval(() => {
           send({
             type: "progress",
-            step: "AIDEN analyzing competitive landscape",
+            step: "Analyzing competitive landscape",
             progress: 85,
             detail: "Still processing — synthesizing ads, press, and social sentiment data",
           });
-        }, 20_000);
+        }, 15_000);
 
         let strategicAnalysis;
         try {
@@ -300,12 +300,12 @@ export async function POST(request: NextRequest) {
           strategicAnalysis = JSON.parse(analysisJson);
         } catch (e: unknown) {
           clearInterval(aidenTicker);
-          console.error("[audit] AIDEN analysis failed:", e instanceof Error ? e.message : e);
+          console.error("[audit] Strategic analysis failed:", e instanceof Error ? e.message : e);
           strategicAnalysis = {
             executiveSummary: {
-              overview: "Strategic analysis could not be completed. Please check your AIDEN API configuration.",
-              keyFindings: ["Analysis pending"],
-              strategicImplications: "Retry with valid AIDEN API credentials.",
+              overview: "Strategic analysis could not be completed due to an error.",
+              keyFindings: ["Analysis unavailable — please retry"],
+              strategicImplications: "Retry the audit.",
             },
             visualDna: { colorStrategies: {}, visualDifferentiation: "", sharedPatterns: [], uniqueElements: {} },
             creativeDna: { messagingThemes: {}, toneAndVoice: {}, creativeDirections: {} },
