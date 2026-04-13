@@ -247,7 +247,7 @@ async function resolvePageId(brandName: string): Promise<string | null> {
  * Collect ads for a brand — resolves the correct Facebook page, then fetches ads by page ID.
  * Falls back to keyword search only as a last resort.
  */
-export async function collectAds(brandName: string, country = "US", maxAds = 50, pageId?: string) {
+export async function collectAds(brandName: string, country = "ALL", maxAds = 50, pageId?: string) {
   let rawAds: FacebookAd[] = [];
   let resolvedPageId = pageId || null;
 

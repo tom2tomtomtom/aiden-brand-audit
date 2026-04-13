@@ -102,7 +102,8 @@ export function BrandCards({ brands }: { brands: BrandData[] }) {
               <div className="text-center">
                 <Palette className="h-3 w-3 text-white-dim mx-auto mb-1" />
                 <p className="text-base font-bold text-red-hot tabular-nums">
-                  {brand.colors ? brand.colors.primaryColors.length + brand.colors.secondaryColors.length : 0}
+                  {(brand.colors ? brand.colors.primaryColors.length + brand.colors.secondaryColors.length : 0)
+                    + (brand.adColors ? brand.adColors.primaryColors.length + brand.adColors.secondaryColors.length : 0)}
                 </p>
                 <p className="text-[9px] text-white-dim uppercase">Colors</p>
               </div>

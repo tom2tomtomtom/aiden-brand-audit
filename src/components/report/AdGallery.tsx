@@ -210,7 +210,7 @@ export function AdGallery({ brands }: { brands: BrandData[] }) {
 
             {ads.length === 0 ? (
               <p className="text-xs text-white-dim p-8 text-center bg-black-card border border-border-subtle">
-                No {filterType} ads found for {brand.name}
+                No {filterType === "all" ? "" : `${filterType} `}ads found for {brand.name}
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

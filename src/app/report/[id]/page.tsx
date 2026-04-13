@@ -2,17 +2,17 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Download, Clock, Share2 } from "lucide-react";
+import { ArrowLeft, Clock, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
+import { ExportPdfButton } from "@/components/report/ExportPdfButton";
 import { ExecutiveSummary } from "@/components/report/ExecutiveSummary";
 import { BrandCards } from "@/components/report/BrandCards";
 import { VisualDna } from "@/components/report/VisualDna";
 import { AdGallery } from "@/components/report/AdGallery";
 import { AdAnalytics } from "@/components/report/AdAnalytics";
 import { BrandIntel } from "@/components/report/BrandIntel";
-import { SocialSentiment } from "@/components/report/SocialSentiment";
 import { StrategicAnalysis } from "@/components/report/StrategicAnalysis";
 import { CompetitiveMatrix } from "@/components/report/CompetitiveMatrix";
 
@@ -23,7 +23,6 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchReport() {
@@ -73,9 +72,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
 
   function copyShareLink() {
     navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
     toast.success("Share link copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
   }
 
   const sections = [
@@ -84,7 +81,6 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
     { id: "ads", label: "Ad Intelligence" },
     { id: "analytics", label: "Analytics" },
     { id: "intel", label: "Brand Intel" },
-    { id: "social", label: "Social Pulse" },
     { id: "strategy", label: "Strategic Analysis" },
     { id: "matrix", label: "Competitive Matrix" },
   ];
@@ -93,59 +89,55 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
     <div className="min-h-screen bg-black-ink">
       <header className="border-b-2 border-red-hot bg-black-deep sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={() => router.push("/")}
-                className="text-white-muted hover:text-red-hot transition-colors"
+                className="text-white-muted hover:text-red-hot transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-lg font-bold text-red-hot uppercase tracking-tight">
+              <h1 className="text-sm sm:text-lg font-bold text-red-hot uppercase tracking-tight truncate">
                 Brand DNA Report
               </h1>
-              <div className="flex items-center gap-1 text-xs text-white-dim font-geist-mono">
+              <div className="hidden sm:flex items-center gap-1 text-xs text-white-dim font-geist-mono flex-shrink-0">
                 <Clock className="h-3 w-3" />
                 <span>{formatDuration(results.duration)}</span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <button
                 onClick={copyShareLink}
-                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 transition-all ${
-                  copied
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-400"
-                    : "bg-black-card text-white-muted border-border-subtle hover:border-orange-accent"
-                }`}
+                className="flex items-center gap-2 bg-black-card text-white-muted px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
               >
                 <Share2 className="h-3 w-3" />
-                {copied ? "Copied!" : "Share"}
+                <span className="hidden sm:inline">Share</span>
               </button>
-              <button className="flex items-center gap-2 bg-red-hot text-white px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all">
-                <Download className="h-3 w-3" />
-                Export PDF
-              </button>
+              <ExportPdfButton results={results} />
             </div>
           </div>
         </div>
       </header>
 
-      <nav className="border-b border-border-subtle bg-black-deep/80 backdrop-blur-sm sticky top-16 z-40">
+      <nav className="border-b border-border-subtle bg-black-deep/80 backdrop-blur-sm sticky top-14 sm:top-16 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-1 overflow-x-auto">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`px-4 py-3 text-xs font-bold uppercase tracking-wide transition-colors border-b-2 whitespace-nowrap ${
-                  activeSection === section.id
-                    ? "text-red-hot border-red-hot"
-                    : "text-white-dim border-transparent hover:text-white-muted"
-                }`}
-              >
-                {section.label}
-              </button>
-            ))}
+          <div className="relative">
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+              {sections.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-colors border-b-2 whitespace-nowrap ${
+                    activeSection === section.id
+                      ? "text-red-hot border-red-hot"
+                      : "text-white-dim border-transparent hover:text-white-muted"
+                  }`}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black-deep to-transparent pointer-events-none sm:hidden" />
           </div>
         </div>
       </nav>
@@ -162,7 +154,6 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
           {activeSection === "ads" && <AdGallery brands={results.brands} />}
           {activeSection === "analytics" && <AdAnalytics brands={results.brands} />}
           {activeSection === "intel" && <BrandIntel brands={results.brands} />}
-          {activeSection === "social" && <SocialSentiment brands={results.brands} />}
           {activeSection === "strategy" && (
             <StrategicAnalysis analysis={results.strategicAnalysis} brands={results.brands} />
           )}

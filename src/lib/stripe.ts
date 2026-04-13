@@ -18,30 +18,27 @@ export const stripe = {
   get customers() { return getStripe().customers; },
 } as unknown as Stripe;
 
-export type PlanKey = "starter" | "pro" | "agency";
+export type PlanKey = "pro" | "agency";
 
 export const PLANS: Record<PlanKey, {
   name: string;
   price: number;
   priceId: string;
-  mode: "payment" | "subscription";
+  mode: "subscription";
+  monthlyTokens: number;
 }> = {
-  starter: {
-    name: "Starter",
-    price: 4900,
-    priceId: process.env.STRIPE_PRICE_ID_STARTER!,
-    mode: "payment" as const,
-  },
   pro: {
     name: "Pro",
-    price: 9900,
+    price: 4900,
     priceId: process.env.STRIPE_PRICE_ID_PRO!,
-    mode: "subscription" as const,
+    mode: "subscription",
+    monthlyTokens: 1500,
   },
   agency: {
     name: "Agency",
-    price: 49900,
+    price: 19900,
     priceId: process.env.STRIPE_PRICE_ID_AGENCY!,
-    mode: "subscription" as const,
+    mode: "subscription",
+    monthlyTokens: 5000,
   },
 };

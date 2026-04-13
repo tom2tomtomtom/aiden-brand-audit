@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Coins, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { PlanKey } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/client";
@@ -13,9 +13,11 @@ const tiers = [
     name: "Free",
     price: "$0",
     period: "",
-    description: "Try it out",
+    tokens: "100",
+    tokenDetail: "tokens/month",
+    description: "Try it out — ~1 audit",
     features: [
-      "2 audits per month",
+      "100 tokens per month",
       "2-5 brands per audit",
       "Ad Library scraping",
       "Color DNA extraction",
@@ -27,41 +29,21 @@ const tiers = [
     plan: null,
   },
   {
-    name: "Starter",
-    price: "$49",
-    period: "one-time",
-    description: "10 audits, never expires",
-    features: [
-      "10 audits (lifetime)",
-      "2-5 brands per audit",
-      "Ad Library scraping",
-      "Color DNA extraction",
-      "Full AIDEN strategic analysis",
-      "Brand Intel (PR, press, campaigns)",
-      "PDF export",
-      "Shareable report links",
-    ],
-    cta: "Buy Starter",
-    href: null,
-    highlight: false,
-    plan: "starter" as PlanKey,
-  },
-  {
     name: "Pro",
-    price: "$99",
+    price: "$49",
     period: "/month",
-    description: "For active teams",
+    tokens: "1,500",
+    tokenDetail: "tokens/month",
+    description: "For active teams — ~10 audits",
     features: [
-      "Unlimited audits",
+      "1,500 tokens per month",
       "2-5 brands per audit",
-      "Ad Library scraping",
-      "Color DNA extraction",
       "Full AIDEN strategic analysis",
       "Brand Intel (PR, press, campaigns)",
+      "Social Pulse sentiment analysis",
       "Ad analytics dashboard",
-      "PDF export",
-      "Shareable report links",
-      "Priority support",
+      "PDF export & share links",
+      "Buy extra token packs anytime",
     ],
     cta: "Subscribe",
     href: null,
@@ -70,22 +52,31 @@ const tiers = [
   },
   {
     name: "Agency",
-    price: "$499",
+    price: "$199",
     period: "/month",
-    description: "For agencies and large teams",
+    tokens: "5,000",
+    tokenDetail: "tokens/month",
+    description: "For agencies — ~35 audits",
     features: [
+      "5,000 tokens per month",
       "Everything in Pro",
       "White-label reports",
       "Bulk audit API access",
       "Team seats (coming soon)",
       "Dedicated support",
-      "Custom phantom brains",
+      "Buy extra token packs anytime",
     ],
-    cta: "Contact us",
+    cta: "Subscribe",
     href: null,
     highlight: false,
     plan: "agency" as PlanKey,
   },
+];
+
+const tokenPacks = [
+  { name: "200 tokens", price: "$29", detail: "~1-2 audits", pack: "small" },
+  { name: "500 tokens", price: "$59", detail: "~3-4 audits", pack: "medium" },
+  { name: "1,500 tokens", price: "$149", detail: "~10 audits", pack: "large" },
 ];
 
 export default function PricingPage() {
@@ -133,14 +124,10 @@ export default function PricingPage() {
       }
 
       const data = await res.json();
-      if (data.error) {
-        toast.error(data.error);
-        return;
-      }
       if (data.url) {
         window.location.href = data.url;
       } else {
-        toast.error("Failed to create checkout session.");
+        toast.error(data.error || "Failed to create checkout session.");
       }
     } catch (err) {
       console.error("Checkout error:", err);
@@ -150,6 +137,33 @@ export default function PricingPage() {
       } else {
         toast.error("Something went wrong. Please try again.");
       }
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleTopup(pack: string) {
+    if (!isLoggedIn) {
+      toast.error("Please sign in first.");
+      router.push("/login");
+      return;
+    }
+
+    setLoading(pack);
+    try {
+      const res = await fetch("/api/tokens/topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || "Failed to create checkout");
+      }
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setLoading(null);
     }
@@ -191,14 +205,28 @@ export default function PricingPage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-red-hot uppercase tracking-tight">
-            Simple Pricing
+            Token-Based Pricing
           </h2>
           <p className="mt-4 text-lg text-white-muted uppercase tracking-wide">
-            Start free. Pay when you need more.
+            Pay for what you use. Every audit costs tokens.
           </p>
+          <div className="mt-6 flex items-center justify-center gap-6 text-xs text-white-dim font-geist-mono">
+            <span className="flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-orange-accent" />
+              2 brands ≈ 170 tokens
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-orange-accent" />
+              3 brands ≈ 230 tokens
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-orange-accent" />
+              5 brands ≈ 350 tokens
+            </span>
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
           {tiers.map((tier) => (
             <div
               key={tier.name}
@@ -214,11 +242,18 @@ export default function PricingPage() {
                 </span>
               )}
               <h3 className="text-lg font-bold text-white uppercase">{tier.name}</h3>
-              <div className="mt-4 flex items-baseline">
+              <div className="mt-4 flex items-baseline gap-1">
                 <span className="text-4xl font-bold text-white">{tier.price}</span>
                 {tier.period && (
-                  <span className="ml-1 text-sm text-white-dim">{tier.period}</span>
+                  <span className="text-sm text-white-dim">{tier.period}</span>
                 )}
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <Coins className="h-3.5 w-3.5 text-orange-accent" />
+                <span className="text-sm font-bold text-orange-accent font-geist-mono">
+                  {tier.tokens}
+                </span>
+                <span className="text-xs text-white-dim">{tier.tokenDetail}</span>
               </div>
               <p className="mt-2 text-sm text-white-dim">{tier.description}</p>
 
@@ -235,11 +270,7 @@ export default function PricingPage() {
                 {tier.href ? (
                   <Link
                     href={tier.href}
-                    className={`block w-full px-4 py-3 text-center text-sm font-bold uppercase tracking-wide transition-colors ${
-                      tier.highlight
-                        ? "bg-red-hot text-white hover:bg-red-dim border-2 border-red-hot"
-                        : "border-2 border-border-subtle text-white hover:bg-white/5"
-                    }`}
+                    className="block w-full px-4 py-3 text-center text-sm font-bold uppercase tracking-wide transition-colors border-2 border-border-subtle text-white hover:bg-white/5"
                   >
                     {tier.cta}
                   </Link>
@@ -263,6 +294,63 @@ export default function PricingPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="max-w-3xl mx-auto mt-20">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-bold text-white uppercase tracking-tight">
+              Need More Tokens?
+            </h3>
+            <p className="mt-2 text-sm text-white-dim uppercase tracking-wide">
+              Buy token packs anytime. No subscription required.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {tokenPacks.map((pack) => (
+              <button
+                key={pack.pack}
+                onClick={() => handleTopup(pack.pack)}
+                disabled={loading === pack.pack}
+                className="border-2 border-border-subtle bg-black-deep p-6 text-left hover:border-orange-accent transition-all disabled:opacity-50 group"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="h-4 w-4 text-orange-accent" />
+                  <span className="text-sm font-bold text-white uppercase">{pack.name}</span>
+                </div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-2xl font-bold text-white">{pack.price}</span>
+                  <span className="text-xs text-white-dim">one-time</span>
+                </div>
+                <p className="text-[10px] text-white-dim uppercase tracking-wide">{pack.detail}</p>
+                {loading === pack.pack && (
+                  <Loader2 className="h-4 w-4 animate-spin text-orange-accent mt-2" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto mt-20 border-2 border-border-subtle bg-black-deep p-8">
+          <h3 className="text-lg font-bold text-white uppercase mb-4">How Tokens Work</h3>
+          <div className="space-y-3 text-sm text-white-muted">
+            <div className="flex items-start gap-3">
+              <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">01</span>
+              <p>Each brand audit costs tokens based on the number of brands analyzed. More brands = more API calls = more tokens.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">02</span>
+              <p>Subscription plans include monthly token grants that refresh every billing cycle. Unused tokens roll over.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">03</span>
+              <p>Need more? Buy token packs anytime — no subscription required. They never expire.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">04</span>
+              <p>Tokens cover real costs: Facebook Ad Library scraping, logo analysis, AI-powered strategic intelligence, and more.</p>
+            </div>
+          </div>
         </div>
       </section>
     </div>

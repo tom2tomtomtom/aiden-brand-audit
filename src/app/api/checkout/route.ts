@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${request.headers.get("host")}`;
 
     const session = await stripe.checkout.sessions.create({
-      mode: planConfig.mode,
+      mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: planConfig.priceId, quantity: 1 }],
       success_url: `${baseUrl}/dashboard?checkout=success`,
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
         userId: auth.user.id,
         plan,
       },
-      ...(planConfig.mode === "subscription" && {
-        subscription_data: { metadata: { userId: auth.user.id, plan } },
-      }),
+      subscription_data: {
+        metadata: { userId: auth.user.id, plan },
+      },
     });
 
     return NextResponse.json({ url: session.url });

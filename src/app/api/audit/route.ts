@@ -8,7 +8,8 @@ import { analyzeWithAiden } from "@/lib/aiden-api";
 import { gatherBrandIntel } from "@/lib/brand-intel";
 import { requireAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
-import { canRunAudit, incrementUsage, getUserPlan } from "@/lib/usage";
+import { getUserPlan, incrementUsage } from "@/lib/usage";
+import { ensureMonthlyGrant, estimateAuditCost, deductTokens } from "@/lib/tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
@@ -26,22 +27,6 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const supabase = createServiceClient();
-  if (supabase) {
-    const { allowed, planLimits } = await canRunAudit(supabase, auth.user.id);
-    if (!allowed) {
-      return new Response(
-        JSON.stringify({
-          error: "Usage limit reached",
-          plan: planLimits.plan,
-          used: planLimits.used,
-          limit: planLimits.limit,
-        }),
-        { status: 402, headers: { "Content-Type": "application/json" } },
-      );
-    }
-  }
-
   const { brands } = (await request.json()) as { brands: BrandConfig[] };
 
   if (!brands || brands.length === 0) {
@@ -51,8 +36,34 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const supabase = createServiceClient();
+  let tokenCost = 0;
+
   if (supabase) {
     const plan = await getUserPlan(supabase, auth.user.id);
+    await ensureMonthlyGrant(supabase, auth.user.id, plan);
+
+    const { total } = estimateAuditCost(brands.length);
+    tokenCost = total;
+
+    const { success } = await deductTokens(
+      supabase,
+      auth.user.id,
+      tokenCost,
+      `Brand audit: ${brands.map((b) => b.name).join(" vs ")} (${brands.length} brands)`,
+    );
+
+    if (!success) {
+      return new Response(
+        JSON.stringify({
+          error: "Insufficient tokens",
+          tokenCost,
+          message: `This audit requires ${tokenCost} tokens. Top up your balance or upgrade your plan.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     await incrementUsage(supabase, auth.user.id, plan);
   }
 
@@ -101,7 +112,7 @@ export async function POST(request: NextRequest) {
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];
           try {
-            ads = await collectAds(brand.facebookPage || brand.name, "US", 50, brand.facebookPageId);
+            ads = await collectAds(brand.facebookPage || brand.name, "ALL", 50, brand.facebookPageId);
           } catch {
             ads = [];
           }

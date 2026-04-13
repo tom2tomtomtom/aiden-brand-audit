@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, CreditCard, Clock, FileText, ArrowRight } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, Clock, FileText, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
-import type { PlanLimits } from "@/lib/usage";
+import { TokenBalanceBadge } from "@/components/layout/TokenBalanceBadge";
 
 interface ReportSummary {
   id: string;
@@ -116,34 +116,6 @@ function CompanySearch({ brand, index, onSelect }: {
   );
 }
 
-function UsageBadge({ planLimits }: { planLimits: PlanLimits | null }) {
-  if (!planLimits) return null;
-
-  const planColors: Record<string, string> = {
-    free: "border-white-dim text-white-dim",
-    starter: "border-orange-accent text-orange-accent",
-    pro: "border-red-hot text-red-hot",
-    agency: "border-yellow-electric text-yellow-electric",
-  };
-
-  return (
-    <div className="flex items-center gap-4">
-      <span className={`text-[10px] font-bold uppercase tracking-widest border px-2 py-0.5 ${planColors[planLimits.plan]}`}>
-        {planLimits.plan}
-      </span>
-      {planLimits.limit !== null && (
-        <span className="text-xs text-white-dim font-geist-mono">
-          {planLimits.used}/{planLimits.limit} audits used
-          {planLimits.resetType === "monthly" && " this month"}
-        </span>
-      )}
-      {planLimits.limit === null && (
-        <span className="text-xs text-white-dim font-geist-mono">Unlimited audits</span>
-      )}
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   return (
     <Suspense>
@@ -163,7 +135,6 @@ function DashboardContent() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
   const [progressDetail, setProgressDetail] = useState("");
-  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
   const [reportsLoading, setReportsLoading] = useState(true);
@@ -172,35 +143,29 @@ function DashboardContent() {
     if (searchParams.get("checkout") === "success") {
       toast.success("Payment successful! Your plan has been upgraded.");
     }
+    if (searchParams.get("topup") === "success") {
+      toast.success("Tokens added to your balance!");
+    }
   }, [searchParams]);
 
-  async function refreshData() {
-    const supabase = createClient();
-    if (!supabase) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setUserEmail(user.email ?? null);
-
-    try {
-      const res = await fetch("/api/user-plan");
-      if (res.ok) setPlanLimits(await res.json());
-    } catch { /* non-critical */ }
-
-    try {
-      const res = await fetch("/api/reports");
-      if (res.ok) setPastReports(await res.json());
-    } catch { /* non-critical */ }
-    setReportsLoading(false);
-  }
-
   useEffect(() => {
-    refreshData();
-  }, []);
+    async function loadUserData() {
+      const supabase = createClient();
+      if (!supabase) return;
 
-  useEffect(() => {
-    function onFocus() { refreshData(); }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserEmail(user.email ?? null);
+
+      try {
+        const res = await fetch("/api/reports");
+        if (res.ok) {
+          const data = await res.json();
+          setPastReports(data);
+        }
+      } catch { /* non-critical */ }
+      setReportsLoading(false);
+    }
+    loadUserData();
   }, []);
 
   async function handleSignOut() {
@@ -238,9 +203,15 @@ function DashboardContent() {
   }
 
   async function startAudit() {
-    if (planLimits && planLimits.limit !== null && planLimits.used >= planLimits.limit) {
-      toast.error("Usage limit reached. Upgrade your plan for more audits.");
-      router.push("/pricing");
+    const hasAnyInput = brands.some((b) => b.name.trim() || b.website.trim());
+    if (!hasAnyInput) {
+      toast.error("Enter at least 2 brand names to start an audit");
+      return;
+    }
+
+    const incompleteBrands = brands.filter((b) => b.name.trim() && !b.website.trim());
+    if (incompleteBrands.length > 0) {
+      toast.error(`Add a website for ${incompleteBrands[0].name}`);
       return;
     }
 
@@ -262,8 +233,9 @@ function DashboardContent() {
       });
 
       if (response.status === 402) {
-        toast.error("Usage limit reached. Upgrade your plan.");
-        router.push("/pricing");
+        const errData = await response.json().catch(() => null);
+        const msg = errData?.message || "Insufficient tokens. Top up your balance.";
+        toast.error(msg);
         setIsAnalyzing(false);
         return;
       }
@@ -321,15 +293,8 @@ function DashboardContent() {
                 BRAND DNA // ANALYZER
               </h1>
             </Link>
-            <div className="flex items-center gap-4">
-              <UsageBadge planLimits={planLimits} />
-              <Link
-                href="/pricing"
-                className="flex items-center gap-1 text-xs text-orange-accent hover:text-red-hot transition-colors uppercase tracking-wide font-bold"
-              >
-                <CreditCard className="h-3.5 w-3.5" />
-                Upgrade
-              </Link>
+            <div className="flex items-center gap-3">
+              <TokenBalanceBadge />
               {userEmail && (
                 <span className="text-xs text-white-dim font-geist-mono hidden sm:inline">
                   {userEmail}
@@ -355,10 +320,10 @@ function DashboardContent() {
             { icon: Brain, label: "AIDEN Strategic Analysis" },
             { icon: BarChart3, label: "Ad Analytics Dashboard" },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-2 px-4 py-2 bg-black-card border border-border-subtle">
+            <span key={label} className="inline-flex items-center gap-2 px-4 py-2 bg-black-card border border-border-subtle select-none cursor-default">
               <Icon className="h-4 w-4 text-orange-accent" />
-              <span className="text-xs text-white-muted uppercase tracking-wide">{label}</span>
-            </div>
+              <span className="text-xs text-white-dim uppercase tracking-wide font-normal">{label}</span>
+            </span>
           ))}
         </div>
 
@@ -369,11 +334,6 @@ function DashboardContent() {
                 <h3 className="text-xl font-bold text-orange-accent uppercase">
                   New Audit
                 </h3>
-                {planLimits && planLimits.limit !== null && (
-                  <span className="text-xs text-white-dim font-geist-mono">
-                    {Math.max(0, planLimits.limit - planLimits.used)} audits remaining
-                  </span>
-                )}
               </div>
 
               <div className="space-y-6">
@@ -426,23 +386,6 @@ function DashboardContent() {
                 ))}
               </div>
 
-              {planLimits && planLimits.limit !== null && planLimits.used >= planLimits.limit && (
-                <div className="mt-6 p-4 border-2 border-orange-accent bg-orange-accent/5 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-orange-accent">You&apos;ve used all {planLimits.limit} audits on your {planLimits.plan} plan</p>
-                    <p className="text-xs text-white-dim mt-1">
-                      {planLimits.resetType === "monthly" ? "Resets next month, or upgrade now for more." : "Upgrade to unlock more audits."}
-                    </p>
-                  </div>
-                  <Link
-                    href="/pricing"
-                    className="flex-shrink-0 bg-orange-accent text-black-ink px-5 py-2.5 text-xs font-bold uppercase tracking-wide hover:bg-yellow-electric transition-colors"
-                  >
-                    Upgrade Plan
-                  </Link>
-                </div>
-              )}
-
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-border-subtle">
                 <button
                   onClick={addBrand}
@@ -452,13 +395,19 @@ function DashboardContent() {
                   Add Brand
                 </button>
 
-                <button
-                  onClick={startAudit}
-                  disabled={planLimits !== null && planLimits.limit !== null && planLimits.used >= planLimits.limit}
-                  className="bg-red-hot text-white px-8 py-3 text-sm font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Analyze Brand DNA
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-white-dim font-geist-mono">
+                    ~{brands.filter(b => b.name.trim()).length >= 2
+                      ? brands.filter(b => b.name.trim()).length * 60 + 50
+                      : brands.length * 60 + 50} tokens
+                  </span>
+                  <button
+                    onClick={startAudit}
+                    className="bg-red-hot text-white px-8 py-3 text-sm font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Analyze Brand DNA
+                  </button>
+                </div>
               </div>
             </div>
           </div>
