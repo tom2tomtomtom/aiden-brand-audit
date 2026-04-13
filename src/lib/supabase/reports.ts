@@ -1,15 +1,25 @@
 import { createServiceClient } from "./server";
 import type { AuditResults } from "@/lib/types";
 
+function sanitizeForJson(obj: unknown): unknown {
+  const raw = JSON.stringify(obj);
+  const clean = raw
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  return JSON.parse(clean);
+}
+
 export async function saveReport(results: AuditResults, userId?: string): Promise<string | null> {
   const supabase = createServiceClient();
   if (!supabase) return null;
 
   try {
+    const cleanResults = sanitizeForJson(results) as Record<string, unknown>;
     const { error } = await supabase.from("reports").insert({
       id: results.id,
       brands: results.brands.map((b) => b.name),
-      results: results as unknown as Record<string, unknown>,
+      results: cleanResults,
       duration: results.duration,
       created_at: results.createdAt,
       ...(userId && { user_id: userId }),

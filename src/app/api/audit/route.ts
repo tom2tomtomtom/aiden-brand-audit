@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           try {
             logos = await collectLogos(brand.website);
           } catch {
-            logos = { primaryLogo: null, logoVariants: [], favicon: null, brandName: brand.name };
+            logos = { primaryLogo: null, logoVariants: [], favicon: null, brandName: brand.name, brandColors: null };
           }
 
           send({
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];
           try {
-            ads = await collectAds(brand.facebookPage || brand.name, "US", 50);
+            ads = await collectAds(brand.facebookPage || brand.name, "US", 50, brand.facebookPageId);
           } catch {
             ads = [];
           }
@@ -119,9 +119,7 @@ export async function POST(request: NextRequest) {
           if (logos.primaryLogo) {
             try {
               colors = await extractColors(logos.primaryLogo);
-            } catch {
-              // Logo color extraction failed
-            }
+            } catch { /* extraction failed */ }
           }
 
           let adColors = null;

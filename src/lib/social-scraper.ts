@@ -54,8 +54,8 @@ export async function scrapeTikTok(brandName: string): Promise<SocialPost[]> {
     return (data.aweme_list || []).slice(0, 20).map((p) => ({
       platform: "tiktok" as const,
       id: p.aweme_id,
-      author: `@${p.author.unique_id}`,
-      text: p.desc.slice(0, 500),
+      author: `@${sanitize(p.author.unique_id)}`,
+      text: sanitize(p.desc).slice(0, 500),
       url: `https://www.tiktok.com/@${p.author.unique_id}/video/${p.aweme_id}`,
       views: p.statistics.play_count,
       likes: p.statistics.digg_count,
@@ -104,8 +104,8 @@ export async function scrapeInstagram(brandName: string): Promise<SocialPost[]> 
       return {
         platform: "instagram" as const,
         id: String(p.pk),
-        author: `@${username}`,
-        text: captionText.slice(0, 500),
+        author: `@${sanitize(username)}`,
+        text: sanitize(captionText).slice(0, 500),
         url: postUrl,
         views: p.play_count || 0,
         likes: p.like_count || 0,
@@ -153,8 +153,8 @@ export async function scrapeReddit(brandName: string): Promise<SocialPost[]> {
       return {
         platform: "reddit" as const,
         id: p.id,
-        author: `u/${p.author}`,
-        text: fullText.slice(0, 500),
+        author: `u/${sanitize(p.author)}`,
+        text: sanitize(fullText).slice(0, 500),
         url: p.url.startsWith("http") ? p.url : `https://www.reddit.com${p.url}`,
         views: 0,
         likes: p.score,
@@ -173,6 +173,12 @@ export async function scrapeReddit(brandName: string): Promise<SocialPost[]> {
 // --- Helpers ---
 
 import type { SocialPost, SocialSentiment } from "./types";
+
+function sanitize(text: string): string {
+  return text
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+}
 
 function computeEngagement(post: SocialPost): number {
   return post.likes + post.comments + post.shares;

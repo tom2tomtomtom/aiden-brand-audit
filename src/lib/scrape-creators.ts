@@ -211,23 +211,93 @@ function extractVideoUrl(ad: FacebookAd): string | null {
 }
 
 /**
- * Collect ads for a brand — tries company lookup first, falls back to keyword search.
- * Returns normalized BrandAd-compatible objects.
+ * Auto-discover the correct Facebook page ID for a brand using the company search API.
+ * Returns the best-matching page_id or null.
  */
-export async function collectAds(brandName: string, country = "US", maxAds = 50) {
-  let rawAds: FacebookAd[] = [];
-
+async function resolvePageId(brandName: string): Promise<string | null> {
   try {
-    const companyResult = await getCompanyAds({ companyName: brandName, country, status: "ACTIVE" });
-    rawAds = companyResult.results || [];
+    const result = await searchCompanies(brandName);
+    const candidates = result.searchResults || [];
+    if (candidates.length === 0) return null;
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalBrand = normalize(brandName);
+
+    const exactMatch = candidates.find((c) => normalize(c.name) === normalBrand);
+    if (exactMatch) return exactMatch.page_id;
+
+    const closeMatch = candidates.find((c) => {
+      const n = normalize(c.name);
+      return n === normalBrand || (n.startsWith(normalBrand) && n.length <= normalBrand.length + 8);
+    });
+    if (closeMatch) return closeMatch.page_id;
+
+    const bestByLikes = candidates
+      .filter((c) => normalize(c.name).includes(normalBrand) || normalBrand.includes(normalize(c.name)))
+      .sort((a, b) => b.likes - a.likes)[0];
+    if (bestByLikes && bestByLikes.likes > 1000) return bestByLikes.page_id;
+
+    return null;
   } catch {
-    // Fall back to keyword search
+    return null;
+  }
+}
+
+/**
+ * Collect ads for a brand — resolves the correct Facebook page, then fetches ads by page ID.
+ * Falls back to keyword search only as a last resort.
+ */
+export async function collectAds(brandName: string, country = "US", maxAds = 50, pageId?: string) {
+  let rawAds: FacebookAd[] = [];
+  let resolvedPageId = pageId || null;
+
+  if (!resolvedPageId) {
+    resolvedPageId = await resolvePageId(brandName);
+    if (resolvedPageId) {
+      console.log(`[ads] Resolved ${brandName} → page_id: ${resolvedPageId}`);
+    }
+  }
+
+  if (resolvedPageId) {
+    try {
+      const result = await getCompanyAds({ pageId: resolvedPageId, country, status: "ACTIVE" });
+      rawAds = result.results || [];
+    } catch { /* fall through */ }
   }
 
   if (rawAds.length === 0) {
     try {
+      const companyResult = await getCompanyAds({ companyName: brandName, country, status: "ACTIVE" });
+      rawAds = companyResult.results || [];
+
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normalBrand = normalize(brandName);
+      const filtered = rawAds.filter((ad) => {
+        const pageName = normalize(ad.page_name || ad.pageName || ad.snapshot?.page_name || "");
+        return pageName === normalBrand
+          || (pageName.startsWith(normalBrand) && pageName.length <= normalBrand.length + 10)
+          || (normalBrand.startsWith(pageName) && pageName.length >= normalBrand.length - 3);
+      });
+      if (filtered.length > 0) rawAds = filtered;
+    } catch { /* fall through */ }
+  }
+
+  if (rawAds.length === 0 && !resolvedPageId) {
+    try {
       const searchResult = await searchAds({ query: brandName, country, status: "ACTIVE" });
-      rawAds = searchResult.searchResults || [];
+      const candidates = searchResult.searchResults || [];
+
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normalBrand = normalize(brandName);
+      rawAds = candidates.filter((ad) => {
+        const pageName = normalize(ad.page_name || ad.pageName || ad.snapshot?.page_name || "");
+        return pageName === normalBrand
+          || (pageName.startsWith(normalBrand) && pageName.length <= normalBrand.length + 6);
+      });
+
+      if (rawAds.length === 0) {
+        console.log(`[ads] Keyword search for "${brandName}" returned ${candidates.length} results but none from a matching page — discarding to avoid false matches`);
+      }
     } catch {
       return [];
     }

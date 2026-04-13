@@ -10,6 +10,7 @@ export interface BrandLogo {
   logoVariants: string[];
   favicon: string | null;
   brandName: string | null;
+  brandColors?: string[] | null;
 }
 
 export interface BrandAd {
