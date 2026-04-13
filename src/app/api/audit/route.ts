@@ -238,8 +238,17 @@ export async function POST(request: NextRequest) {
           type: "progress",
           step: "AIDEN analyzing competitive landscape",
           progress: 80,
-          detail: "Phantom brain processing strategic intelligence",
+          detail: "Phantom brain processing strategic intelligence — this step takes 60-90 seconds",
         });
+
+        const aidenTicker = setInterval(() => {
+          send({
+            type: "progress",
+            step: "AIDEN analyzing competitive landscape",
+            progress: 85,
+            detail: "Still processing — synthesizing ads, press, and social sentiment data",
+          });
+        }, 20_000);
 
         let strategicAnalysis;
         try {
@@ -289,8 +298,10 @@ export async function POST(request: NextRequest) {
           }));
 
           const analysisJson = await analyzeWithAiden(aidenInput);
+          clearInterval(aidenTicker);
           strategicAnalysis = JSON.parse(analysisJson);
         } catch (e: unknown) {
+          clearInterval(aidenTicker);
           console.error("[audit] AIDEN analysis failed:", e instanceof Error ? e.message : e);
           strategicAnalysis = {
             executiveSummary: {
