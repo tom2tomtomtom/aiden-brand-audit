@@ -1,4 +1,5 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = import("@supabase/supabase-js").SupabaseClient<any, any, any>;
 
 export type Plan = "free" | "starter" | "pro" | "agency";
 
