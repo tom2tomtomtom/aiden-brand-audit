@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, Clock, FileText, ArrowRight } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, Clock, FileText, ArrowRight, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
@@ -171,8 +171,7 @@ function DashboardContent() {
   async function handleSignOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    window.location.href = "https://www.aiden.services/auth/logout";
   }
 
   function addBrand() {
@@ -294,6 +293,13 @@ function DashboardContent() {
               </h1>
             </Link>
             <div className="flex items-center gap-3">
+              <a
+                href="https://www.aiden.services/dashboard"
+                className="flex items-center gap-1 text-xs text-white-dim hover:text-red-hot transition-colors uppercase tracking-wide"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Hub
+              </a>
               <TokenBalanceBadge />
               {userEmail && (
                 <span className="text-xs text-white-dim font-geist-mono hidden sm:inline">
