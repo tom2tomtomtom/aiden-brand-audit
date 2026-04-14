@@ -1,35 +1,39 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { createServiceClient } from "@/lib/supabase/server";
-import { getUserPlan } from "@/lib/usage";
-import { getTokenBalance, ensureMonthlyGrant, getMonthlyTokenGrant, estimateAuditCost } from "@/lib/tokens";
+import { estimateAuditCost } from "@/lib/tokens";
+
+const GATEWAY_URL = process.env.GATEWAY_URL || "https://www.aiden.services";
 
 export async function GET() {
   const auth = await requireAuth();
   if (!auth.success) return auth.response;
 
-  const supabase = createServiceClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+  const serviceKey = process.env.AIDEN_SERVICE_KEY;
+  if (!serviceKey) {
+    return NextResponse.json({ error: "Token service not configured" }, { status: 500 });
   }
 
-  const plan = await getUserPlan(supabase, auth.user.id);
-  const balance = await ensureMonthlyGrant(supabase, auth.user.id, plan);
-  const tokenData = await getTokenBalance(supabase, auth.user.id);
+  const res = await fetch(`${GATEWAY_URL}/api/tokens/balance`, {
+    headers: {
+      "X-Service-Key": serviceKey,
+      "X-User-Id": auth.user.id,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(`[tokens] Gateway balance check failed: ${res.status}`);
+    return NextResponse.json({ error: "Failed to fetch token balance" }, { status: 502 });
+  }
+
+  const data = await res.json();
   const auditCost2 = estimateAuditCost(2);
   const auditCost3 = estimateAuditCost(3);
 
   return NextResponse.json({
-    balance,
-    lifetimeGranted: tokenData.lifetimeGranted,
-    lifetimeSpent: tokenData.lifetimeSpent,
-    plan,
-    monthlyGrant: getMonthlyTokenGrant(plan),
+    balance: data.balance ?? 0,
     estimatedCosts: {
       twoBrands: auditCost2.total,
       threeBrands: auditCost3.total,
-      perBrand: auditCost2.perBrand,
-      analysis: auditCost2.analysis,
     },
   });
 }

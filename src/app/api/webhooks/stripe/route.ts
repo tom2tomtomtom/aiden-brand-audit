@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ensureMonthlyGrant, grantUpgradeBonus, grantTokenTopup } from "@/lib/tokens";
-import type { Plan } from "@/lib/usage";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -35,11 +33,7 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (session.metadata?.type === "token_topup") {
-          await handleTokenTopup(supabase, session);
-        } else {
-          await handleCheckoutCompleted(supabase, session);
-        }
+        await handleCheckoutCompleted(supabase, session);
         break;
       }
       case "customer.subscription.updated": {
@@ -62,22 +56,6 @@ export async function POST(request: NextRequest) {
 }
 
 type SupaClient = NonNullable<ReturnType<typeof createServiceClient>>;
-
-async function handleTokenTopup(
-  supabase: SupaClient,
-  session: Stripe.Checkout.Session,
-) {
-  const userId = session.metadata?.userId;
-  const tokens = parseInt(session.metadata?.tokens || "0", 10);
-  const pack = session.metadata?.pack || "unknown";
-
-  if (!userId || tokens <= 0) {
-    console.error("Invalid token topup metadata", session.id);
-    return;
-  }
-
-  await grantTokenTopup(supabase, userId, tokens, pack);
-}
 
 async function handleCheckoutCompleted(
   supabase: SupaClient,
@@ -110,9 +88,6 @@ async function handleCheckoutCompleted(
     },
     { onConflict: "user_id" },
   );
-
-  await ensureMonthlyGrant(supabase, userId, plan as Plan);
-  await grantUpgradeBonus(supabase, userId, "free" as Plan, plan as Plan);
 }
 
 async function handleSubscriptionUpdated(
@@ -120,7 +95,7 @@ async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
 ) {
   const customerId = subscription.customer as string;
-  const plan = (subscription.metadata?.plan as Plan) || "pro";
+  const plan = subscription.metadata?.plan || "pro";
 
   await supabase
     .from("subscriptions")
@@ -135,16 +110,6 @@ async function handleSubscriptionUpdated(
       updated_at: new Date().toISOString(),
     })
     .eq("stripe_customer_id", customerId);
-
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("user_id")
-    .eq("stripe_customer_id", customerId)
-    .single();
-
-  if (sub?.user_id && subscription.status === "active") {
-    await ensureMonthlyGrant(supabase, sub.user_id, plan);
-  }
 }
 
 async function handleSubscriptionDeleted(

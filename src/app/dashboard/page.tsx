@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
 import { TokenBalanceBadge } from "@/components/layout/TokenBalanceBadge";
+import { estimateAuditCost } from "@/lib/tokens";
 
 interface ReportSummary {
   id: string;
@@ -403,9 +404,11 @@ function DashboardContent() {
 
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-white-dim font-geist-mono">
-                    ~{brands.filter(b => b.name.trim()).length >= 2
-                      ? brands.filter(b => b.name.trim()).length * 60 + 50
-                      : brands.length * 60 + 50} tokens
+                    ~{estimateAuditCost(
+                      brands.filter(b => b.name.trim()).length >= 2
+                        ? brands.filter(b => b.name.trim()).length
+                        : brands.length
+                    ).total} tokens
                   </span>
                   <button
                     onClick={startAudit}

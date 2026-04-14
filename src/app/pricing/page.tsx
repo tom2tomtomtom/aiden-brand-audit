@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Loader2, Coins, Zap } from "lucide-react";
+import { Check, Loader2, Coins, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import type { PlanKey } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/client";
@@ -43,7 +43,7 @@ const tiers = [
       "Social Pulse sentiment analysis",
       "Ad analytics dashboard",
       "PDF export & share links",
-      "Buy extra token packs anytime",
+      "Top up tokens via AIDEN Hub",
     ],
     cta: "Subscribe",
     href: null,
@@ -64,19 +64,13 @@ const tiers = [
       "Bulk audit API access",
       "Team seats (coming soon)",
       "Dedicated support",
-      "Buy extra token packs anytime",
+      "Top up tokens via AIDEN Hub",
     ],
     cta: "Subscribe",
     href: null,
     highlight: false,
     plan: "agency" as PlanKey,
   },
-];
-
-const tokenPacks = [
-  { name: "200 tokens", price: "$29", detail: "~1-2 audits", pack: "small" },
-  { name: "500 tokens", price: "$59", detail: "~3-4 audits", pack: "medium" },
-  { name: "1,500 tokens", price: "$149", detail: "~10 audits", pack: "large" },
 ];
 
 export default function PricingPage() {
@@ -137,33 +131,6 @@ export default function PricingPage() {
       } else {
         toast.error("Something went wrong. Please try again.");
       }
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function handleTopup(pack: string) {
-    if (!isLoggedIn) {
-      toast.error("Please sign in first.");
-      router.push("/login");
-      return;
-    }
-
-    setLoading(pack);
-    try {
-      const res = await fetch("/api/tokens/topup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error || "Failed to create checkout");
-      }
-    } catch {
-      toast.error("Something went wrong");
     } finally {
       setLoading(null);
     }
@@ -297,37 +264,23 @@ export default function PricingPage() {
         </div>
 
         <div className="max-w-3xl mx-auto mt-20">
-          <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-white uppercase tracking-tight">
-              Need More Tokens?
+          <div className="border-2 border-border-subtle bg-black-deep p-8 text-center">
+            <Coins className="h-6 w-6 text-orange-accent mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-white uppercase mb-2">
+              Token Balance
             </h3>
-            <p className="mt-2 text-sm text-white-dim uppercase tracking-wide">
-              Buy token packs anytime. No subscription required.
+            <p className="text-sm text-white-dim mb-4">
+              Token balance is managed through AIDEN Hub.
             </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {tokenPacks.map((pack) => (
-              <button
-                key={pack.pack}
-                onClick={() => handleTopup(pack.pack)}
-                disabled={loading === pack.pack}
-                className="border-2 border-border-subtle bg-black-deep p-6 text-left hover:border-orange-accent transition-all disabled:opacity-50 group"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4 text-orange-accent" />
-                  <span className="text-sm font-bold text-white uppercase">{pack.name}</span>
-                </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-white">{pack.price}</span>
-                  <span className="text-xs text-white-dim">one-time</span>
-                </div>
-                <p className="text-[10px] text-white-dim uppercase tracking-wide">{pack.detail}</p>
-                {loading === pack.pack && (
-                  <Loader2 className="h-4 w-4 animate-spin text-orange-accent mt-2" />
-                )}
-              </button>
-            ))}
+            <a
+              href="https://www.aiden.services/pricing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-orange-accent text-black font-bold text-sm uppercase tracking-wide hover:bg-orange-accent/80 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Get Tokens on AIDEN Hub
+            </a>
           </div>
         </div>
 
@@ -344,7 +297,7 @@ export default function PricingPage() {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">03</span>
-              <p>Need more? Buy token packs anytime — no subscription required. They never expire.</p>
+              <p>Need more? Purchase tokens through AIDEN Hub at aiden.services/pricing.</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">04</span>
