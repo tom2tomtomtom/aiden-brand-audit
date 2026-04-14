@@ -10,6 +10,7 @@ import { requireAuth } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getUserPlan, incrementUsage } from "@/lib/usage";
 import { ensureMonthlyGrant, estimateAuditCost, deductTokens } from "@/lib/tokens";
+import { checkTokens, deductTokens as gatewayDeductTokens } from "@/lib/gateway-tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
@@ -34,6 +35,23 @@ export async function POST(request: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens
+  if (process.env.AIDEN_SERVICE_KEY) {
+    const totalGatewayCost = (brands.length * 9) + 4;
+    const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
+    if (checkResult.balance < totalGatewayCost) {
+      return new Response(
+        JSON.stringify({
+          error: "Insufficient tokens",
+          tokenCost: totalGatewayCost,
+          balance: checkResult.balance,
+          message: `This audit requires ${totalGatewayCost} tokens. Your balance is ${checkResult.balance}.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
   }
 
   const supabase = createServiceClient();
@@ -355,6 +373,14 @@ export async function POST(request: NextRequest) {
         }
 
         send({ type: "complete", results });
+
+        // Gateway token deductions: one per_brand per brand + one strategic_analysis
+        if (process.env.AIDEN_SERVICE_KEY) {
+          for (let i = 0; i < brands.length; i++) {
+            await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+          }
+          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+        }
       } catch (error) {
         send({
           type: "error",
