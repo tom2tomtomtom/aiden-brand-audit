@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
   let tokenCost = 0;
 
-  if (supabase) {
+  if (!process.env.AIDEN_SERVICE_KEY && supabase) {
     const plan = await getUserPlan(supabase, auth.user.id);
     await ensureMonthlyGrant(supabase, auth.user.id, plan);
 
