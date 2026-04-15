@@ -31,9 +31,13 @@ export async function GET() {
 
   return NextResponse.json({
     balance: data.balance ?? 0,
+    plan: data.plan ?? "free",
+    monthlyGrant: 0,
     estimatedCosts: {
       twoBrands: auditCost2.total,
       threeBrands: auditCost3.total,
+      perBrand: auditCost2.perBrand,
+      analysis: auditCost2.analysis,
     },
   });
 }
