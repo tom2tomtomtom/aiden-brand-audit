@@ -35,25 +35,21 @@ export async function POST(request: NextRequest) {
   }
 
   // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens
-  if (!process.env.AIDEN_SERVICE_KEY) {
-    return new Response(
-      JSON.stringify({ error: "Token service not configured. AIDEN_SERVICE_KEY is required." }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  const totalGatewayCost = (brands.length * 9) + 4;
-  const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
-  if (checkResult.balance < totalGatewayCost) {
-    return new Response(
-      JSON.stringify({
-        error: "Insufficient tokens",
-        tokenCost: totalGatewayCost,
-        balance: checkResult.balance,
-        message: `This audit requires ${totalGatewayCost} tokens. Your balance is ${checkResult.balance}.`,
-      }),
-      { status: 402, headers: { "Content-Type": "application/json" } },
-    );
+  const hasTokenService = !!process.env.AIDEN_SERVICE_KEY;
+  if (hasTokenService) {
+    const totalGatewayCost = (brands.length * 9) + 4;
+    const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
+    if (checkResult.balance < totalGatewayCost) {
+      return new Response(
+        JSON.stringify({
+          error: "Insufficient tokens",
+          tokenCost: totalGatewayCost,
+          balance: checkResult.balance,
+          message: `This audit requires ${totalGatewayCost} tokens. Your balance is ${checkResult.balance}.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
   }
 
   const encoder = new TextEncoder();
@@ -345,11 +341,12 @@ export async function POST(request: NextRequest) {
 
         send({ type: "complete", results });
 
-        // Gateway token deductions: one per_brand per brand + one strategic_analysis
-        for (let i = 0; i < brands.length; i++) {
-          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+        if (hasTokenService) {
+          for (let i = 0; i < brands.length; i++) {
+            await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+          }
+          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
         }
-        await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
       } catch (error) {
         send({
           type: "error",

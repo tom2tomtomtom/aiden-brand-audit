@@ -8,26 +8,41 @@ export async function GET() {
   const auth = await requireAuth();
   if (!auth.success) return auth.response;
 
-  const serviceKey = process.env.AIDEN_SERVICE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json({ error: "Token service not configured" }, { status: 500 });
-  }
-
-  const res = await fetch(`${GATEWAY_URL}/api/tokens/balance`, {
-    headers: {
-      "X-Service-Key": serviceKey,
-      "X-User-Id": auth.user.id,
-    },
-  });
-
-  if (!res.ok) {
-    console.error(`[tokens] Gateway balance check failed: ${res.status}`);
-    return NextResponse.json({ error: "Failed to fetch token balance" }, { status: 502 });
-  }
-
-  const data = await res.json();
   const auditCost2 = estimateAuditCost(2);
   const auditCost3 = estimateAuditCost(3);
+
+  const serviceKey = process.env.AIDEN_SERVICE_KEY;
+  if (!serviceKey) {
+    return NextResponse.json({
+      balance: 0,
+      plan: "free",
+      monthlyGrant: 0,
+      estimatedCosts: {
+        twoBrands: auditCost2.total,
+        threeBrands: auditCost3.total,
+        perBrand: auditCost2.perBrand,
+        analysis: auditCost2.analysis,
+      },
+    });
+  }
+
+  let data: { balance?: number; plan?: string } = {};
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/tokens/balance`, {
+      headers: {
+        "X-Service-Key": serviceKey,
+        "X-User-Id": auth.user.id,
+      },
+    });
+
+    if (!res.ok) {
+      console.error(`[tokens] Gateway balance check failed: ${res.status}`);
+    } else {
+      data = await res.json();
+    }
+  } catch (err) {
+    console.error("[tokens] Gateway fetch error:", err);
+  }
 
   return NextResponse.json({
     balance: data.balance ?? 0,
