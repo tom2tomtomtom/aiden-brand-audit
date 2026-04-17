@@ -153,15 +153,18 @@ export default function PricingPage() {
                 </Link>
               ) : (
                 <>
-                  <Link href="/login" className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
+                  <a
+                    href="https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard"
+                    className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide"
+                  >
                     Sign in
-                  </Link>
-                  <Link
-                    href="/register"
+                  </a>
+                  <a
+                    href="https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard"
                     className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide"
                   >
                     Get started
-                  </Link>
+                  </a>
                 </>
               )}
             </div>
