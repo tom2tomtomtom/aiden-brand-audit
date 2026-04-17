@@ -1,17 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
+const DEFAULT_NEXT = "https://brandaudit.aiden.services/dashboard";
+
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black-ink flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-red-hot" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Funnel new signups through the Gateway so they get one AIDEN account
+  // that works across every AIDEN product. Local email/password signup
+  // remains available for parity with existing users.
+  const nextTarget = searchParams.get("next") || DEFAULT_NEXT;
+  const gatewayHref = `https://www.aiden.services/login?next=${encodeURIComponent(nextTarget)}`;
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +69,19 @@ export default function RegisterPage() {
             </h1>
           </Link>
           <p className="mt-2 text-sm text-white-dim uppercase tracking-wide">Create your account</p>
+        </div>
+
+        <a
+          href={gatewayHref}
+          className="flex items-center justify-center gap-2 w-full bg-black-deep border-2 border-red-hot text-red-hot hover:bg-red-hot hover:text-white px-8 py-3 text-sm font-bold uppercase tracking-wide transition-all mb-4"
+        >
+          Sign up with AIDEN
+        </a>
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-border-subtle" />
+          <span className="text-[10px] text-white-dim uppercase tracking-widest">or</span>
+          <div className="flex-1 h-px bg-border-subtle" />
         </div>
 
         <form onSubmit={handleRegister} className="bg-black-deep border-2 border-border-subtle p-8 space-y-6">

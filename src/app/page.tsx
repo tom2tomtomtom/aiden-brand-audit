@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Zap, Eye, BarChart3, Brain, ArrowRight, Shield, Globe, FileText } from "lucide-react";
 
+// All signup/sign-in CTAs on the landing page send users through the AIDEN
+// Gateway so accounts work across the whole AIDEN platform. Existing
+// password-based users can still reach the local form at /login directly.
+const GATEWAY_LOGIN_URL =
+  "https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard";
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-black-ink">
@@ -14,15 +20,15 @@ export default function HomePage() {
               <Link href="/pricing" className="text-sm text-white-dim hover:text-white transition-colors uppercase tracking-wide">
                 Pricing
               </Link>
-              <Link href="/login" className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
+              <a href={GATEWAY_LOGIN_URL} className="text-sm text-white-muted hover:text-white transition-colors uppercase tracking-wide">
                 Sign in
-              </Link>
-              <Link
-                href="/register"
+              </a>
+              <a
+                href={GATEWAY_LOGIN_URL}
                 className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide"
               >
                 Get started free
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -43,12 +49,12 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mt-10">
-            <Link
-              href="/register"
+            <a
+              href={GATEWAY_LOGIN_URL}
               className="inline-flex items-center gap-2 bg-red-hot text-white px-8 py-4 text-sm font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all"
             >
               Start Free <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
             <Link
               href="/pricing"
               className="inline-flex items-center gap-2 border-2 border-border-subtle text-white px-8 py-4 text-sm font-bold uppercase tracking-wide hover:bg-white/5 transition-all"
@@ -88,12 +94,12 @@ export default function HomePage() {
           <p className="text-sm text-white-dim mb-6">
             Join the brands already using AIDEN for competitive intelligence.
           </p>
-          <Link
-            href="/register"
+          <a
+            href={GATEWAY_LOGIN_URL}
             className="inline-flex items-center gap-2 bg-red-hot text-white px-8 py-4 text-sm font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all"
           >
             Create Free Account <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
         </div>
       </main>
 
@@ -107,9 +113,9 @@ export default function HomePage() {
               <Link href="/pricing" className="text-xs text-white-dim hover:text-white uppercase tracking-wide transition-colors">
                 Pricing
               </Link>
-              <Link href="/login" className="text-xs text-white-dim hover:text-white uppercase tracking-wide transition-colors">
+              <a href={GATEWAY_LOGIN_URL} className="text-xs text-white-dim hover:text-white uppercase tracking-wide transition-colors">
                 Sign In
-              </Link>
+              </a>
             </div>
           </div>
         </div>
