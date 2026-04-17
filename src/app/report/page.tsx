@@ -23,10 +23,20 @@ export default function ReportPage() {
 
   useEffect(() => {
     const stored = sessionStorage.getItem("auditResults");
-    if (stored) {
-      setResults(JSON.parse(stored));
-    } else {
+    if (!stored) {
       router.push("/");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      if (!parsed || !Array.isArray(parsed.brands)) {
+        throw new Error("Invalid audit payload");
+      }
+      setResults(parsed);
+    } catch (err) {
+      console.error("[report] Corrupt sessionStorage payload:", err);
+      sessionStorage.removeItem("auditResults");
+      router.push("/dashboard");
     }
   }, [router]);
 

@@ -27,8 +27,25 @@ export async function POST(request: NextRequest) {
 
   const { brands } = (await request.json()) as { brands: BrandConfig[] };
 
-  if (!brands || brands.length === 0) {
+  if (!brands || !Array.isArray(brands) || brands.length === 0) {
     return new Response(JSON.stringify({ error: "No brands provided" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Hard cap to prevent runaway payloads (UI only offers up to ~5).
+  const MAX_BRANDS = 10;
+  if (brands.length > MAX_BRANDS) {
+    return new Response(
+      JSON.stringify({ error: `Too many brands. Limit is ${MAX_BRANDS} per audit.` }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const invalid = brands.find((b) => !b || typeof b.name !== "string" || !b.name.trim());
+  if (invalid) {
+    return new Response(JSON.stringify({ error: "Each brand needs a name." }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });

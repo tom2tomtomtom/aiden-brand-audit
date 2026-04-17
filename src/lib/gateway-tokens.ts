@@ -12,6 +12,12 @@ interface CheckResult {
   allowed: boolean
   required: number
   balance: number
+  /**
+   * True when the Gateway could not be reached or returned an error.
+   * Callers should treat this as "unknown" and typically fail-open so
+   * paying users aren't locked out during transient Gateway outages.
+   */
+  gatewayUnavailable?: boolean
 }
 
 interface DeductResult {
@@ -38,18 +44,33 @@ export async function checkTokens(
   product: string,
   operation: string
 ): Promise<CheckResult> {
-  const res = await fetch(`${GATEWAY_URL}/api/tokens/check`, {
-    method: 'POST',
-    headers: getHeaders(userId),
-    body: JSON.stringify({ product, operation }),
-  })
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/tokens/check`, {
+      method: 'POST',
+      headers: getHeaders(userId),
+      body: JSON.stringify({ product, operation }),
+    })
 
-  if (!res.ok) {
-    console.error(`[gateway-tokens] Check failed: ${res.status}`)
-    return { allowed: true, required: 0, balance: 0 }
+    if (!res.ok) {
+      console.error(`[gateway-tokens] Check failed: ${res.status}`)
+      return {
+        allowed: true,
+        required: 0,
+        balance: Number.MAX_SAFE_INTEGER,
+        gatewayUnavailable: true,
+      }
+    }
+
+    return res.json()
+  } catch (err) {
+    console.error('[gateway-tokens] Check threw:', err)
+    return {
+      allowed: true,
+      required: 0,
+      balance: Number.MAX_SAFE_INTEGER,
+      gatewayUnavailable: true,
+    }
   }
-
-  return res.json()
 }
 
 export async function deductTokens(
@@ -57,20 +78,25 @@ export async function deductTokens(
   product: string,
   operation: string
 ): Promise<DeductResult> {
-  const res = await fetch(`${GATEWAY_URL}/api/tokens/deduct`, {
-    method: 'POST',
-    headers: getHeaders(userId),
-    body: JSON.stringify({ product, operation }),
-  })
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/tokens/deduct`, {
+      method: 'POST',
+      headers: getHeaders(userId),
+      body: JSON.stringify({ product, operation }),
+    })
 
-  if (!res.ok && res.status === 402) {
+    if (!res.ok && res.status === 402) {
+      return res.json()
+    }
+
+    if (!res.ok) {
+      console.error(`[gateway-tokens] Deduct failed: ${res.status}`)
+      return { success: true, remaining: 0 }
+    }
+
     return res.json()
-  }
-
-  if (!res.ok) {
-    console.error(`[gateway-tokens] Deduct failed: ${res.status}`)
+  } catch (err) {
+    console.error('[gateway-tokens] Deduct threw:', err)
     return { success: true, remaining: 0 }
   }
-
-  return res.json()
 }
