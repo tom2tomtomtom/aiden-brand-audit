@@ -194,7 +194,7 @@ export interface AuditJob {
 }
 
 export interface AuditResults {
-  id: string;
+  id?: string;
   brands: BrandData[];
   strategicAnalysis: StrategicAnalysis;
   duration: number;

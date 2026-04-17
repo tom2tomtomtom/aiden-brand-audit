@@ -351,9 +351,12 @@ export async function POST(request: NextRequest) {
           const savedId = await saveReport(results, auth.user.id);
           if (!savedId) {
             console.error("[audit] Report save returned null — check Supabase config and RLS policies");
+            // Prevent the client from surfacing a broken share link.
+            results.id = undefined;
           }
         } catch (saveErr) {
           console.error("[audit] Report save exception:", saveErr instanceof Error ? saveErr.message : saveErr);
+          results.id = undefined;
         }
 
         send({ type: "complete", results });

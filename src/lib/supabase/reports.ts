@@ -30,7 +30,7 @@ export async function saveReport(results: AuditResults, userId?: string): Promis
       return null;
     }
 
-    return results.id;
+    return results.id ?? null;
   } catch (e) {
     console.error("[reports] Save error:", e);
     return null;
