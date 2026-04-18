@@ -1,3 +1,5 @@
+import { safeFetchHtml } from "./url-guard";
+
 function domainFromUrl(website: string): string {
   try {
     const url = new URL(website.startsWith("http") ? website : `https://${website}`);
@@ -16,29 +18,25 @@ function resolveUrl(href: string, base: string): string {
 }
 
 async function scrapeMetaImages(website: string): Promise<{ ogImage: string | null; touchIcon: string | null }> {
-  const url = website.startsWith("http") ? website : `https://${website}`;
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; BrandAuditBot/1.0)" },
-      redirect: "follow",
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return { ogImage: null, touchIcon: null };
+  // Use the SSRF-guarded fetcher. Old code did a plain fetch() with
+  // redirect: 'follow', which let an attacker point `brand.website` at
+  // cloud metadata endpoints (169.254.169.254), loopback, or anything
+  // on the Railway private network. safeFetchHtml resolves DNS itself
+  // and blocks private ranges on every hop.
+  const fetched = await safeFetchHtml(website).catch(() => null);
+  if (!fetched) return { ogImage: null, touchIcon: null };
 
-    const html = await res.text();
+  const { url, text: html } = fetched;
 
-    const ogMatch = html.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-    const ogImage = ogMatch?.[1] ? resolveUrl(ogMatch[1], url) : null;
+  const ogMatch = html.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+  const ogImage = ogMatch?.[1] ? resolveUrl(ogMatch[1], url) : null;
 
-    const touchMatch = html.match(/rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i)
-      || html.match(/href=["']([^"']+)["'][^>]*rel=["']apple-touch-icon["']/i);
-    const touchIcon = touchMatch?.[1] ? resolveUrl(touchMatch[1], url) : null;
+  const touchMatch = html.match(/rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i)
+    || html.match(/href=["']([^"']+)["'][^>]*rel=["']apple-touch-icon["']/i);
+  const touchIcon = touchMatch?.[1] ? resolveUrl(touchMatch[1], url) : null;
 
-    return { ogImage, touchIcon };
-  } catch {
-    return { ogImage: null, touchIcon: null };
-  }
+  return { ogImage, touchIcon };
 }
 
 export async function collectLogos(website: string) {
