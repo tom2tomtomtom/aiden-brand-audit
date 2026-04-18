@@ -19,7 +19,7 @@ Brand Audit is the strategic X-ray. The senior planner who pulls a cultural tear
 
 ## 4. Where it lives
 
-- Domain: `brand-audit.aiden.services` [TODO: verify against Gateway dashboard tool array]
+- Domain: `brandaudit.aiden.services` [TODO: verify against Gateway dashboard tool array]
 - Repo: `tom2tomtomtom/aiden-brand-audit`
 - Local: `/Users/tommyhyde/aiden-brand-audit`
 - Deployed: Vercel at `brandaudit-rebuild.vercel.app` (Railway migration in `railway.json`)
