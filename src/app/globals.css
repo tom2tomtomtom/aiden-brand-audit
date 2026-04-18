@@ -1,4 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo+Narrow:wght@400&display=swap');
 @import "tailwindcss";
+
+.aiden-app-name {
+  font-family: 'Archivo Narrow', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
 
 @theme {
   --color-black-ink: #050505;

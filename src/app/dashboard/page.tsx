@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
 import { TokenBalanceBadge } from "@/components/layout/TokenBalanceBadge";
 import { estimateAuditCost } from "@/lib/tokens";
+import { AidenLogo } from "@/components/ui/aiden-logo";
 
 interface ReportSummary {
   id: string;
@@ -288,18 +289,16 @@ function DashboardContent() {
       <header className="border-b-2 border-red-hot bg-black-deep">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/dashboard">
-              <h1 className="text-xl font-bold text-red-hot uppercase tracking-tight">
-                BRAND DNA // ANALYZER
-              </h1>
+            <Link href="/dashboard" className="text-xl tracking-tight flex items-center gap-1">
+              <AidenLogo size="md" />
+              <span className="aiden-app-name text-white-dim">.Brand&nbsp;Audit</span>
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <a
                 href="https://www.aiden.services/dashboard"
-                className="flex items-center gap-1 text-xs text-white-dim hover:text-red-hot transition-colors uppercase tracking-wide"
+                className="text-white-dim text-sm hover:text-red-hot transition-colors"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Hub
+                Back to Hub
               </a>
               <TokenBalanceBadge />
               {userEmail && (
@@ -309,10 +308,9 @@ function DashboardContent() {
               )}
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-1 text-xs text-white-dim hover:text-red-hot transition-colors uppercase tracking-wide"
+                className="text-white-dim text-sm hover:text-red-hot transition-colors"
               >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign Out
+                Sign out
               </button>
             </div>
           </div>
