@@ -1,0 +1,9 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "AIDEN .Hub" [level=1] [ref=e5]:
+        - img "AIDEN" [ref=e6]
+        - generic [ref=e7]: .Hub
+      - paragraph [ref=e8]: AI-Driven Enterprise Navigator
+    - heading "Checking session..." [level=2] [ref=e13]
+  - alert [ref=e14]

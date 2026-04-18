@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e87]:
+    - generic [ref=e88]:
+      - link "BRAND DNA // ANALYZER" [ref=e89] [cursor=pointer]:
+        - /url: /
+        - heading "BRAND DNA // ANALYZER" [level=1] [ref=e90]
+      - paragraph [ref=e91]: Create your account
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]: Email
+        - textbox "you@company.com" [ref=e95]
+      - generic [ref=e96]:
+        - generic [ref=e97]: Password
+        - textbox "Min 6 characters" [ref=e98]
+      - button "Create Account" [ref=e99] [cursor=pointer]
+      - paragraph [ref=e100]:
+        - text: Already have an account?
+        - link "Sign in" [ref=e101] [cursor=pointer]:
+          - /url: /login
+    - paragraph [ref=e102]: Free plan includes 2 audits per month
+  - region "Notifications alt+T"
+  - alert [ref=e85]

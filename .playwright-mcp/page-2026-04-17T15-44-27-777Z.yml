@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - link "BRAND DNA // ANALYZER" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - heading "BRAND DNA // ANALYZER" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Sign in to your account
+    - link "Continue with AIDEN" [ref=e8] [cursor=pointer]:
+      - /url: https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard
+    - generic [ref=e11]: or
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]: Email
+        - textbox "you@company.com" [ref=e16]
+      - generic [ref=e17]:
+        - generic [ref=e18]: Password
+        - textbox "••••••••" [ref=e19]
+      - button "Sign In" [ref=e20] [cursor=pointer]
+      - paragraph [ref=e21]:
+        - text: No account?
+        - link "Create one" [ref=e22] [cursor=pointer]:
+          - /url: /register
+  - region "Notifications alt+T"
+  - alert [ref=e23]

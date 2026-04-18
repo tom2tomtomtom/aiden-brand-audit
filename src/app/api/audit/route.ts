@@ -368,9 +368,15 @@ export async function POST(request: NextRequest) {
           await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
         }
       } catch (error) {
+        // Never echo raw error text to the client. Postgres/Supabase
+        // errors here can reveal table names, column names, RLS
+        // policies, or even row data in constraint violations; third-
+        // party SDK errors often include full response bodies. Log
+        // server-side, show a generic message to the browser.
+        console.error("[audit] Stream failed:", error instanceof Error ? error.message : error);
         send({
           type: "error",
-          message: error instanceof Error ? error.message : "Unknown error occurred",
+          message: "Audit failed. Please retry — if the problem persists, contact support.",
         });
       } finally {
         clearInterval(keepalive);
