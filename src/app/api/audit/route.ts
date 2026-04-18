@@ -55,8 +55,18 @@ export async function POST(request: NextRequest) {
   }
   const { brands } = parsed.data;
 
-  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens
+  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens.
+  // In production we MUST fail closed when the Gateway service key is missing —
+  // otherwise we'd run a full multi-brand audit (Apify scraping, Claude analysis,
+  // logo discovery) with no billing path.
   const hasTokenService = !!process.env.AIDEN_SERVICE_KEY;
+  if (!hasTokenService && process.env.NODE_ENV === 'production') {
+    console.error('[audit] AIDEN_SERVICE_KEY missing in production — refusing to run unbilled audit');
+    return new Response(
+      JSON.stringify({ error: 'Token service unavailable' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
   if (hasTokenService) {
     const totalGatewayCost = (brands.length * 9) + 4;
     const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');

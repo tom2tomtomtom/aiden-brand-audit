@@ -29,6 +29,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Database not configured" }, { status: 500 });
   }
 
+  // Idempotency: Stripe retries any non-2xx (or network) delivery for up to
+  // ~3 days. Without this check, a handler that half-succeeds (e.g. flushes
+  // logs then errors before commit) ends up writing subscription state
+  // twice. We record event.id up front and short-circuit repeat deliveries.
+  const { error: insertErr } = await supabase
+    .from('stripe_processed_events')
+    .insert({ event_id: event.id, event_type: event.type });
+
+  if (insertErr) {
+    // 23505 = unique_violation → we've already handled this event.
+    if ((insertErr as { code?: string }).code === '23505') {
+      console.log(`[stripe/webhook] already processed event ${event.id}`);
+      return NextResponse.json({ received: true, deduped: true });
+    }
+    console.error('[stripe/webhook] failed to record event id:', insertErr);
+    // Fall through: better to process twice than to drop an event entirely.
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {
