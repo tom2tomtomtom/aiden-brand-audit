@@ -14,8 +14,8 @@ interface CheckResult {
   balance: number
   /**
    * True when the Gateway could not be reached or returned an error.
-   * Callers should treat this as "unknown" and typically fail-open so
-   * paying users aren't locked out during transient Gateway outages.
+   * Callers should fail closed: deny the operation and surface a clear
+   * error to the user rather than silently granting free access.
    */
   gatewayUnavailable?: boolean
 }
@@ -26,6 +26,7 @@ interface DeductResult {
   error?: string
   required?: number
   balance?: number
+  gatewayUnavailable?: boolean
 }
 
 function getHeaders(userId: string): Record<string, string> {
@@ -54,9 +55,9 @@ export async function checkTokens(
     if (!res.ok) {
       console.error(`[gateway-tokens] Check failed: ${res.status}`)
       return {
-        allowed: true,
+        allowed: false,
         required: 0,
-        balance: Number.MAX_SAFE_INTEGER,
+        balance: 0,
         gatewayUnavailable: true,
       }
     }
@@ -65,9 +66,9 @@ export async function checkTokens(
   } catch (err) {
     console.error('[gateway-tokens] Check threw:', err)
     return {
-      allowed: true,
+      allowed: false,
       required: 0,
-      balance: Number.MAX_SAFE_INTEGER,
+      balance: 0,
       gatewayUnavailable: true,
     }
   }
@@ -91,12 +92,12 @@ export async function deductTokens(
 
     if (!res.ok) {
       console.error(`[gateway-tokens] Deduct failed: ${res.status}`)
-      return { success: true, remaining: 0 }
+      return { success: false, error: `gateway_error_${res.status}`, gatewayUnavailable: true }
     }
 
     return res.json()
   } catch (err) {
     console.error('[gateway-tokens] Deduct threw:', err)
-    return { success: true, remaining: 0 }
+    return { success: false, error: 'gateway_unreachable', gatewayUnavailable: true }
   }
 }

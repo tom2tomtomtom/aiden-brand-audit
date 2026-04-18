@@ -51,11 +51,26 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens
+  // Gateway token check: per_brand = 40, strategic_analysis = 20
+  // (matches lib/tokens.ts in gateway). Pre-flight check, then deduct
+  // ALL tokens upfront so a failed deduct can't leave the user with a
+  // free audit if it surfaces after expensive API calls have run.
   const hasTokenService = !!process.env.AIDEN_SERVICE_KEY;
+  const PER_BRAND_COST = 40;
+  const STRATEGIC_COST = 20;
+  const totalGatewayCost = brands.length * PER_BRAND_COST + STRATEGIC_COST;
+
   if (hasTokenService) {
-    const totalGatewayCost = (brands.length * 9) + 4;
     const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
+    if (checkResult.gatewayUnavailable) {
+      return new Response(
+        JSON.stringify({
+          error: "Token service temporarily unavailable",
+          message: "We can't verify your token balance right now. Please retry in a moment.",
+        }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      );
+    }
     if (checkResult.balance < totalGatewayCost) {
       return new Response(
         JSON.stringify({
@@ -63,6 +78,43 @@ export async function POST(request: NextRequest) {
           tokenCost: totalGatewayCost,
           balance: checkResult.balance,
           message: `This audit requires ${totalGatewayCost} tokens. Your balance is ${checkResult.balance}.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // Deduct upfront. If any deduct fails, abort before spending API budget.
+    const deducted: Array<'per_brand' | 'strategic_analysis'> = [];
+    for (let i = 0; i < brands.length; i++) {
+      const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+      if (!r.success) {
+        // Best-effort: we don't have a Gateway refund endpoint, so log
+        // the partial-deduct state. Counts hours of monitoring, not minutes.
+        console.error(
+          `[audit] Pre-deduct failed at brand ${i + 1}/${brands.length}. ` +
+            `Already deducted ${deducted.length} per_brand for user ${auth.user.id}. ` +
+            `Reason: ${r.error ?? 'unknown'}`,
+        );
+        return new Response(
+          JSON.stringify({
+            error: "Token deduction failed",
+            message: "We couldn't reserve tokens for this audit. Please retry.",
+          }),
+          { status: 402, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      deducted.push('per_brand');
+    }
+    const sa = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+    if (!sa.success) {
+      console.error(
+        `[audit] strategic_analysis deduct failed for user ${auth.user.id}. ` +
+          `Already deducted ${deducted.length} per_brand. Reason: ${sa.error ?? 'unknown'}`,
+      );
+      return new Response(
+        JSON.stringify({
+          error: "Token deduction failed",
+          message: "We couldn't reserve tokens for this audit. Please retry.",
         }),
         { status: 402, headers: { "Content-Type": "application/json" } },
       );
@@ -361,12 +413,8 @@ export async function POST(request: NextRequest) {
 
         send({ type: "complete", results });
 
-        if (hasTokenService) {
-          for (let i = 0; i < brands.length; i++) {
-            await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
-          }
-          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
-        }
+        // Tokens were deducted upfront (before this stream started) so
+        // a partial-result run never lets the user get a free audit.
       } catch (error) {
         // Never echo raw error text to the client. Postgres/Supabase
         // errors here can reveal table names, column names, RLS
