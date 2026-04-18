@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
 import { collectSocialPosts } from "@/lib/social-scraper";
@@ -9,9 +10,29 @@ import { gatherBrandIntel } from "@/lib/brand-intel";
 import { requireAuth } from "@/lib/auth";
 import { checkTokens, deductTokens as gatewayDeductTokens } from "@/lib/gateway-tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
-import type { BrandConfig, BrandData, AuditResults, ProgressEvent } from "@/lib/types";
+import type { BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
 export const maxDuration = 300;
+
+// Hard cap to prevent runaway payloads (UI only offers up to ~5).
+const MAX_BRANDS = 10;
+
+// Each brand string feeds prompts, scraping queries, and eventually the
+// saved report row. Caps keep a stray/hostile caller from stuffing a
+// megabyte into our Claude prompts or the reports table. Website is
+// kept as a plain string (rather than z.url()) because collectors
+// accept bare domains like "example.com" — url-guard in the fetch
+// layer is the actual SSRF gate.
+const BrandConfigSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  website: z.string().trim().max(500),
+  facebookPage: z.string().trim().max(200).optional(),
+  facebookPageId: z.string().trim().max(100).optional(),
+});
+
+const AuditRequestSchema = z.object({
+  brands: z.array(BrandConfigSchema).min(1).max(MAX_BRANDS),
+});
 
 export async function POST(request: NextRequest) {
   const auth = await requireAuth();
@@ -25,52 +46,20 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { brands } = (await request.json()) as { brands: BrandConfig[] };
-
-  if (!brands || !Array.isArray(brands) || brands.length === 0) {
-    return new Response(JSON.stringify({ error: "No brands provided" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Hard cap to prevent runaway payloads (UI only offers up to ~5).
-  const MAX_BRANDS = 10;
-  if (brands.length > MAX_BRANDS) {
+  const parsed = AuditRequestSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
     return new Response(
-      JSON.stringify({ error: `Too many brands. Limit is ${MAX_BRANDS} per audit.` }),
+      JSON.stringify({ error: "Invalid audit request" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+  const { brands } = parsed.data;
 
-  const invalid = brands.find((b) => !b || typeof b.name !== "string" || !b.name.trim());
-  if (invalid) {
-    return new Response(JSON.stringify({ error: "Each brand needs a name." }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Gateway token check: per_brand = 40, strategic_analysis = 20
-  // (matches lib/tokens.ts in gateway). Pre-flight check, then deduct
-  // ALL tokens upfront so a failed deduct can't leave the user with a
-  // free audit if it surfaces after expensive API calls have run.
+  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens
   const hasTokenService = !!process.env.AIDEN_SERVICE_KEY;
-  const PER_BRAND_COST = 40;
-  const STRATEGIC_COST = 20;
-  const totalGatewayCost = brands.length * PER_BRAND_COST + STRATEGIC_COST;
-
   if (hasTokenService) {
+    const totalGatewayCost = (brands.length * 9) + 4;
     const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
-    if (checkResult.gatewayUnavailable) {
-      return new Response(
-        JSON.stringify({
-          error: "Token service temporarily unavailable",
-          message: "We can't verify your token balance right now. Please retry in a moment.",
-        }),
-        { status: 503, headers: { "Content-Type": "application/json" } },
-      );
-    }
     if (checkResult.balance < totalGatewayCost) {
       return new Response(
         JSON.stringify({
@@ -78,43 +67,6 @@ export async function POST(request: NextRequest) {
           tokenCost: totalGatewayCost,
           balance: checkResult.balance,
           message: `This audit requires ${totalGatewayCost} tokens. Your balance is ${checkResult.balance}.`,
-        }),
-        { status: 402, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    // Deduct upfront. If any deduct fails, abort before spending API budget.
-    const deducted: Array<'per_brand' | 'strategic_analysis'> = [];
-    for (let i = 0; i < brands.length; i++) {
-      const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
-      if (!r.success) {
-        // Best-effort: we don't have a Gateway refund endpoint, so log
-        // the partial-deduct state. Counts hours of monitoring, not minutes.
-        console.error(
-          `[audit] Pre-deduct failed at brand ${i + 1}/${brands.length}. ` +
-            `Already deducted ${deducted.length} per_brand for user ${auth.user.id}. ` +
-            `Reason: ${r.error ?? 'unknown'}`,
-        );
-        return new Response(
-          JSON.stringify({
-            error: "Token deduction failed",
-            message: "We couldn't reserve tokens for this audit. Please retry.",
-          }),
-          { status: 402, headers: { "Content-Type": "application/json" } },
-        );
-      }
-      deducted.push('per_brand');
-    }
-    const sa = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
-    if (!sa.success) {
-      console.error(
-        `[audit] strategic_analysis deduct failed for user ${auth.user.id}. ` +
-          `Already deducted ${deducted.length} per_brand. Reason: ${sa.error ?? 'unknown'}`,
-      );
-      return new Response(
-        JSON.stringify({
-          error: "Token deduction failed",
-          message: "We couldn't reserve tokens for this audit. Please retry.",
         }),
         { status: 402, headers: { "Content-Type": "application/json" } },
       );
@@ -413,8 +365,12 @@ export async function POST(request: NextRequest) {
 
         send({ type: "complete", results });
 
-        // Tokens were deducted upfront (before this stream started) so
-        // a partial-result run never lets the user get a free audit.
+        if (hasTokenService) {
+          for (let i = 0; i < brands.length; i++) {
+            await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+          }
+          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+        }
       } catch (error) {
         // Never echo raw error text to the client. Postgres/Supabase
         // errors here can reveal table names, column names, RLS
