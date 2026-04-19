@@ -60,7 +60,7 @@ function LoginForm() {
         <div className="text-center mb-8">
           <Link href="/">
             <h1 className="text-2xl font-bold text-red-hot uppercase tracking-tight">
-              BRAND DNA // ANALYZER
+              AIDEN BRAND AUDIT
             </h1>
           </Link>
           <p className="mt-2 text-sm text-white-dim uppercase tracking-wide">Sign in to your account</p>

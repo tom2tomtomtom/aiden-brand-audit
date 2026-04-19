@@ -14,7 +14,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-xl font-bold text-red-hot uppercase tracking-tight">
-              BRAND DNA // ANALYZER
+              AIDEN BRAND AUDIT
             </h1>
             <div className="flex items-center gap-4">
               <Link href="/pricing" className="text-sm text-white-dim hover:text-white transition-colors uppercase tracking-wide">

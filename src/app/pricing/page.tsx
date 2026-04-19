@@ -143,7 +143,7 @@ export default function PricingPage() {
           <div className="flex justify-between items-center h-16">
             <Link href="/">
               <h1 className="text-xl font-bold text-red-hot uppercase tracking-tight">
-                BRAND DNA // ANALYZER
+                AIDEN BRAND AUDIT
               </h1>
             </Link>
             <div className="flex items-center gap-4">

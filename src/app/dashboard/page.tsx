@@ -354,7 +354,7 @@ function DashboardContent() {
                             type="text"
                             value={brand.name}
                             onChange={(e) => updateBrand(i, "name", e.target.value)}
-                            placeholder="e.g. Nike"
+                            placeholder="e.g. Aesop"
                             className="w-full bg-black-card border border-border-subtle text-white-full px-4 py-3 text-sm placeholder:text-white-dim/50 hover:border-border-strong focus:border-red-hot focus:bg-black-deep transition-all"
                           />
                         </div>
@@ -366,7 +366,7 @@ function DashboardContent() {
                             type="url"
                             value={brand.website}
                             onChange={(e) => updateBrand(i, "website", e.target.value)}
-                            placeholder="e.g. https://nike.com"
+                            placeholder="e.g. https://aesop.com"
                             className="w-full bg-black-card border border-border-subtle text-white-full px-4 py-3 text-sm placeholder:text-white-dim/50 hover:border-border-strong focus:border-red-hot focus:bg-black-deep transition-all"
                           />
                         </div>

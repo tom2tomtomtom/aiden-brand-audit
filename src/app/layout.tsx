@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BRAND DNA // ANALYZER",
-  description: "AI-powered competitive brand intelligence. Powered by AIDEN.",
+  title: "AIDEN Brand Audit",
+  description: "AI-powered competitive brand intelligence. Part of the AIDEN platform.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
