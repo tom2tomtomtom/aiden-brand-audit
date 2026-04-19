@@ -22,7 +22,7 @@ Brand Audit is the strategic X-ray. The senior planner who pulls a cultural tear
 - Domain: `brandaudit.aiden.services` (no hyphen — matches Gateway dashboard tool array)
 - Repo: `tom2tomtomtom/aiden-brand-audit`
 - Local: `/Users/tommyhyde/aiden-brand-audit`
-- Deployed: Vercel at `brandaudit-rebuild.vercel.app` (Railway migration in `railway.json`)
+- Deployed: Railway project `aiden-brand-audit`, service `aiden-brand-audit` (production env). Auto-deploys from `main`. Vercel deploy fully retired 2026-04-19.
 
 ## 5. Tech stack
 
@@ -105,11 +105,11 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 
 ## 10. Deployment
 
-Current: Vercel (`brandaudit-rebuild.vercel.app`) auto-deploys from `main`.
-
-In prep: Railway via `railway.json`. Dockerfile uses standalone Next.js output. Healthcheck `/api/health`. Restart policy ON_FAILURE (max 5 retries).
+Railway. Project `aiden-brand-audit`, service `aiden-brand-audit`, production env. Auto-deploys from `main` via `railway.json`. Dockerfile uses standalone Next.js output. Healthcheck `/api/health`. Restart policy ON_FAILURE (max 5 retries).
 
 Build: `npm run build` → `.next/standalone`. Start: `npm run start`.
+
+Legacy `staging` env still exists in the same project with a `Redis` + `airwave-staging` service pair from the original fork. Not the live deploy. Ignore or clean up.
 
 ## 11. Known gotchas + incidents
 
