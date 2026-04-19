@@ -9,13 +9,29 @@ export function extractAndRepairJson(text: string): string {
   return json;
 }
 
+function extractJsonSubstring(text: string): string | null {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const candidate = fenceMatch ? fenceMatch[1] : text;
+  const startIdx = candidate.search(/[\{\[]/);
+  if (startIdx === -1) return null;
+  const open = candidate[startIdx];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0, inStr = false, esc = false;
+  for (let i = startIdx; i < candidate.length; i++) {
+    const c = candidate[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) return candidate.slice(startIdx, i + 1); }
+  }
+  return null;
+}
+
 function extractRawJson(text: string): string {
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
-
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) return braceMatch[0].trim();
-
+  const extracted = extractJsonSubstring(text);
+  if (extracted) return extracted.trim();
   return text.trim();
 }
 
