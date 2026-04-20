@@ -32,12 +32,20 @@ export function TokenBalanceBadge() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  if (!data) return null;
+  // Render even when data hasn't arrived yet (show a placeholder) so the
+  // header doesn't flash a missing slot, and so an API/env misconfig
+  // surfaces as "—" rather than a silent zero. Previous versions hid the
+  // pill entirely when the fetch returned nothing, which looked like a
+  // legitimate 0-token state to users.
+  const balance = data?.balance ?? null;
+  const costs = data?.estimatedCosts ?? { twoBrands: 0, threeBrands: 0, perBrand: 0, analysis: 0 };
+  const isUnknown = balance === null;
+  const isLow = !isUnknown && balance < costs.twoBrands;
+  const isHealthy = !isUnknown && balance >= costs.threeBrands;
 
-  const isLow = data.balance < data.estimatedCosts.twoBrands;
-  const isHealthy = data.balance >= data.estimatedCosts.threeBrands;
-
-  const colorClass = isLow
+  const colorClass = isUnknown
+    ? "border-border-subtle text-white-dim hover:bg-white/5"
+    : isLow
     ? "border-red-hot text-red-hot hover:bg-red-hot/10"
     : isHealthy
       ? "border-green-500 text-green-500 hover:bg-green-500/10"
@@ -50,7 +58,7 @@ export function TokenBalanceBadge() {
         className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide border-2 transition-all ${colorClass}`}
       >
         <Coins className="h-3.5 w-3.5" />
-        <span className="font-geist-mono tabular-nums">{data.balance}</span>
+        <span className="font-geist-mono tabular-nums">{isUnknown ? "—" : balance}</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -59,11 +67,16 @@ export function TokenBalanceBadge() {
           <div className="p-4 border-b border-border-subtle">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-white-dim uppercase tracking-wide">Token Balance</span>
-              <span className={`text-lg font-bold font-geist-mono tabular-nums ${isLow ? "text-red-hot" : isHealthy ? "text-green-500" : "text-orange-accent"}`}>
-                {data.balance}
+              <span className={`text-lg font-bold font-geist-mono tabular-nums ${isUnknown ? "text-white-dim" : isLow ? "text-red-hot" : isHealthy ? "text-green-500" : "text-orange-accent"}`}>
+                {isUnknown ? "—" : balance}
               </span>
             </div>
-            {data.monthlyGrant > 0 && (
+            {isUnknown && (
+              <p className="text-[10px] text-white-dim mt-1">
+                Balance unavailable. Check AIDEN Hub.
+              </p>
+            )}
+            {!isUnknown && data && data.monthlyGrant > 0 && (
               <p className="text-[10px] text-white-dim font-geist-mono">
                 +{data.monthlyGrant} tokens/month ({data.plan} plan)
               </p>
@@ -80,15 +93,15 @@ export function TokenBalanceBadge() {
             <div className="space-y-1 text-xs text-white-muted font-geist-mono">
               <div className="flex justify-between">
                 <span>2 brands</span>
-                <span className="text-orange-accent">{data.estimatedCosts.twoBrands} tokens</span>
+                <span className="text-orange-accent">{costs.twoBrands} tokens</span>
               </div>
               <div className="flex justify-between">
                 <span>3 brands</span>
-                <span className="text-orange-accent">{data.estimatedCosts.threeBrands} tokens</span>
+                <span className="text-orange-accent">{costs.threeBrands} tokens</span>
               </div>
               <div className="flex justify-between text-white-dim">
                 <span>Per extra brand</span>
-                <span>+{data.estimatedCosts.perBrand}</span>
+                <span>+{costs.perBrand}</span>
               </div>
             </div>
           </div>
