@@ -18,11 +18,15 @@ async function refreshFromGateway(
   request: NextRequest
 ): Promise<NextResponse | null> {
   try {
+    // Forward every cookie (sb-* Supabase session AND aiden-gw Gateway JWT).
+    // Filtering to sb-* only breaks refresh for users whose aiden-gw is
+    // present but near expiry (sister of the Brief Sharpener fix).
     const cookieHeader = request.cookies
       .getAll()
-      .filter((c) => c.name.startsWith('sb-'))
       .map((c) => `${c.name}=${c.value}`)
       .join('; ');
+
+    if (!cookieHeader) return null;
 
     const res = await fetch(`${GATEWAY_URL}/api/auth/session`, {
       method: 'POST',
