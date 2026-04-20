@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { Zap, Eye, BarChart3, Brain, ArrowRight, Shield, Globe, FileText } from "lucide-react";
+import { verifyGatewayJWT, GW_COOKIE_NAME } from "@/lib/gateway-jwt";
 
 // All signup/sign-in CTAs on the landing page send users through the AIDEN
 // Gateway so accounts work across the whole AIDEN platform. Existing
@@ -7,7 +10,16 @@ import { Zap, Eye, BarChart3, Brain, ArrowRight, Shield, Globe, FileText } from 
 const GATEWAY_LOGIN_URL =
   "https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard";
 
-export default function HomePage() {
+export default async function HomePage() {
+  // If user arrives with a valid Gateway session, skip marketing copy and
+  // drop them into the app. Prevents the "Sign In / Get Started Free"
+  // chrome appearing for authenticated hub users.
+  const jar = await cookies();
+  const gwToken = jar.get(GW_COOKIE_NAME)?.value;
+  if (gwToken) {
+    const payload = await verifyGatewayJWT(gwToken);
+    if (payload) redirect("/dashboard");
+  }
   return (
     <div className="min-h-screen bg-black-ink">
       <header className="border-b-2 border-red-hot bg-black-deep">
