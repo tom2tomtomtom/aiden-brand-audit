@@ -7,8 +7,6 @@ import {
   recordSuccess,
 } from "./auth-circuit";
 
-let cached: ReturnType<typeof createBrowserClient> | null = null;
-
 const FATAL_REFRESH_ERRORS = [
   "refresh_token_already_used",
   "refresh_token_not_found",
@@ -114,24 +112,25 @@ const hardenedFetch: typeof fetch = async (input, init) => {
   }
 };
 
-export function createClient() {
-  if (cached) return cached;
+function buildClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  cached = createBrowserClient(
-    url,
-    key,
-    {
-      db: { schema: "brand_audit" },
-      auth: {
-        flowType: "pkce",
-        autoRefreshToken: false,
-        persistSession: true,
-        storageKey: `sb-${projectRef()}-auth-token`,
-      },
-      global: { fetch: hardenedFetch },
+  return createBrowserClient(url, key, {
+    db: { schema: "brand_audit" },
+    auth: {
+      flowType: "pkce",
+      autoRefreshToken: false,
+      persistSession: true,
+      storageKey: `sb-${projectRef()}-auth-token`,
     },
-  );
+    global: { fetch: hardenedFetch },
+  });
+}
+
+let cached: ReturnType<typeof buildClient> | null = null;
+
+export function createClient() {
+  if (!cached) cached = buildClient();
   return cached;
 }
