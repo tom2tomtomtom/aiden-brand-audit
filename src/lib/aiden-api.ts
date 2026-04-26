@@ -119,7 +119,7 @@ async function analyzeWithClaude(brandsData: BrandAnalysisInput[]): Promise<stri
   console.log("[aiden] Using Claude fallback for strategic analysis");
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 8000,
     messages: [
       {
@@ -145,7 +145,7 @@ interface AidenChatResponse {
 
 async function analyzeWithAidenAPI(brandsData: BrandAnalysisInput[]): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   try {
     const brandSummary = buildBrandSummary(brandsData);

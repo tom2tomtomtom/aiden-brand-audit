@@ -21,12 +21,14 @@ export async function gatherBrandIntel(brandName: string, website: string): Prom
   }
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    console.log(`[brand-intel] Researching ${brandName} via Claude web search...`);
+    const response = await client.beta.messages.create({
+      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
+      betas: ["web-search-2025-03-05"],
       tools: [
         {
-          type: "web_search_20250305",
+          type: "web_search_20250305" as const,
           name: "web_search",
           max_uses: 10,
         },
@@ -62,15 +64,20 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
     });
 
     const textBlocks = response.content.filter(
-      (block): block is Anthropic.TextBlock => block.type === "text"
+      (block) => block.type === "text"
     );
 
-    const fullText = textBlocks.map((b) => b.text).join("");
+    const fullText = textBlocks
+      .map((b) => ("text" in b ? (b as { text: string }).text : ""))
+      .join("");
+    console.log(`[brand-intel] Got ${fullText.length} chars response for ${brandName}`);
 
     const citations: { url: string; title: string }[] = [];
     for (const block of textBlocks) {
-      if (block.citations) {
-        for (const cite of block.citations) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const anyBlock = block as any;
+      if (anyBlock.citations && Array.isArray(anyBlock.citations)) {
+        for (const cite of anyBlock.citations) {
           if (cite.type === "web_search_result_location" && cite.url) {
             citations.push({ url: cite.url, title: cite.title || "" });
           }
@@ -90,9 +97,10 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
       }
     }
 
+    console.log(`[brand-intel] ${brandName}: ${parsed.pressCoverage.length} press, ${parsed.activations.length} activations, ${parsed.recentCampaigns.length} campaigns`);
     return parsed;
   } catch (error) {
-    console.error(`[brand-intel] Failed for ${brandName}:`, error);
+    console.error(`[brand-intel] Failed for ${brandName}:`, error instanceof Error ? error.message : error);
     return emptyResult();
   }
 }

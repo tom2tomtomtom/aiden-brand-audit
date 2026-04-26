@@ -47,6 +47,21 @@ function AdCard({ ad, brandName }: { ad: BrandAd; brandName: string }) {
       {/* Media section */}
       {hasMultipleImages ? (
         <CarouselViewer images={ad.allImageUrls} />
+      ) : ad.isVideo && ad.adVideoUrl ? (
+        <div className="aspect-video bg-black-deep overflow-hidden relative">
+          <video
+            src={ad.adVideoUrl}
+            poster={ad.adImageUrl || undefined}
+            controls
+            muted
+            preload="metadata"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-black-ink/80 px-2 py-0.5 pointer-events-none">
+            <Video className="h-3 w-3 text-orange-accent" />
+            <span className="text-[10px] text-orange-accent uppercase font-bold">Video</span>
+          </div>
+        </div>
       ) : ad.adImageUrl ? (
         <div className="aspect-video bg-black-deep overflow-hidden relative">
           <img
@@ -55,25 +70,12 @@ function AdCard({ ad, brandName }: { ad: BrandAd; brandName: string }) {
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
             loading="lazy"
           />
-          {ad.isVideo && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 bg-black-ink/80 px-2 py-0.5">
-              <Video className="h-3 w-3 text-orange-accent" />
-              <span className="text-[10px] text-orange-accent uppercase font-bold">Video</span>
-            </div>
-          )}
           {ad.isCarousel && (
             <div className="absolute top-2 right-2 flex items-center gap-1 bg-black-ink/80 px-2 py-0.5">
               <LayoutGrid className="h-3 w-3 text-yellow-electric" />
               <span className="text-[10px] text-yellow-electric uppercase font-bold">Carousel</span>
             </div>
           )}
-        </div>
-      ) : ad.isVideo && ad.adVideoUrl ? (
-        <div className="aspect-video bg-black-deep flex items-center justify-center border-b border-border-subtle">
-          <a href={ad.adVideoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-orange-accent hover:text-red-hot transition-colors">
-            <Video className="h-6 w-6" />
-            <span className="text-xs uppercase font-bold">Watch Video</span>
-          </a>
         </div>
       ) : null}
 
