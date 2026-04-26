@@ -69,7 +69,7 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 
 **Local checkout route removed 2026-04-24**: `/src/app/api/checkout/route.ts` deleted. No UI path now creates Brand Audit subscriptions.
 
-**Stripe webhook kept**: `/src/app/api/webhooks/stripe/route.ts` and `src/lib/stripe.ts` remain in place pending Stripe dashboard confirmation of zero active Brand Audit subscribers (Pro $49 / Agency $199 products). Once confirmed zero subscribers, delete both files and remove `STRIPE_*` env vars from Railway.
+**Stripe code fully removed 2026-04-27**: `/src/app/api/webhooks/stripe/route.ts` and `src/lib/stripe.ts` deleted. Confirmed zero subscribers on the Pro $49 / Agency $199 products before removal. Pricing is Gateway-owned. `STRIPE_*` env vars on Railway are no longer read by any code path and can be removed from the service config.
 
 ## 8. Critical files
 
@@ -106,7 +106,7 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 **Optional:**
 - `GATEWAY_URL` (default `https://www.aiden.services`)
 - `NEXT_PUBLIC_GATEWAY_URL`
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_AGENCY` — kept only to service the existing webhook for any active Brand Audit subscribers. Remove from Railway once Stripe dashboard confirms zero active subscribers. Do NOT use to create new checkout sessions. `/api/checkout` route no longer exists.
+- `STRIPE_*` vars (SECRET_KEY, WEBHOOK_SECRET, PRICE_ID_PRO, PRICE_ID_AGENCY) — no longer read by any code (removed 2026-04-27). Safe to drop from Railway config.
 - `SENTRY_*`
 
 ## 10. Deployment
