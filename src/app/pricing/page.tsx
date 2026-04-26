@@ -183,15 +183,15 @@ export default function PricingPage() {
           <div className="mt-6 flex items-center justify-center gap-6 text-xs text-white-dim font-geist-mono">
             <span className="flex items-center gap-1.5">
               <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              2 brands ≈ 170 tokens
+              2 brands ≈ 100 tokens
             </span>
             <span className="flex items-center gap-1.5">
               <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              3 brands ≈ 230 tokens
+              3 brands ≈ 140 tokens
             </span>
             <span className="flex items-center gap-1.5">
               <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              5 brands ≈ 350 tokens
+              5 brands ≈ 220 tokens
             </span>
           </div>
         </div>
