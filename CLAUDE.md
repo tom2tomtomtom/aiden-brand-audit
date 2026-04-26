@@ -52,6 +52,8 @@ Files: `/src/lib/gateway-jwt.ts`, `/src/lib/auth.ts` (`requireAuth()`).
 
 ## 7. Token billing
 
+Pricing is Gateway-owned. Brand Audit has no local Stripe subscriptions. The `/pricing` page directs users to `https://www.aiden.services/pricing` for token purchases.
+
 - `per_brand` = 40 tokens each
 - `strategic_analysis` = 20 tokens
 - Total = `brands.length * 40 + 20`
@@ -64,6 +66,10 @@ Files: `/src/lib/gateway-jwt.ts`, `/src/lib/auth.ts` (`requireAuth()`).
 Client: `/src/lib/gateway-tokens.ts` — fail-closed.
 
 Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
+
+**Local checkout route removed 2026-04-24**: `/src/app/api/checkout/route.ts` deleted. No UI path now creates Brand Audit subscriptions.
+
+**Stripe webhook kept**: `/src/app/api/webhooks/stripe/route.ts` and `src/lib/stripe.ts` remain in place pending Stripe dashboard confirmation of zero active Brand Audit subscribers (Pro $49 / Agency $199 products). Once confirmed zero subscribers, delete both files and remove `STRIPE_*` env vars from Railway.
 
 ## 8. Critical files
 
@@ -100,7 +106,7 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 **Optional:**
 - `GATEWAY_URL` (default `https://www.aiden.services`)
 - `NEXT_PUBLIC_GATEWAY_URL`
-- `STRIPE_*` — disabled if absent
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_AGENCY` — kept only to service the existing webhook for any active Brand Audit subscribers. Remove from Railway once Stripe dashboard confirms zero active subscribers. Do NOT use to create new checkout sessions. `/api/checkout` route no longer exists.
 - `SENTRY_*`
 
 ## 10. Deployment

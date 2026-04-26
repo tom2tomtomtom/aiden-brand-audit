@@ -1,140 +1,36 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Loader2, Coins, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
-import type { PlanKey } from "@/lib/stripe";
+import { ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-const tiers = [
-  {
-    name: "Free",
-    price: "$0",
-    period: "",
-    tokens: "200",
-    tokenDetail: "one-time grant",
-    description: "Try it out — 3 single-brand audits",
-    features: [
-      "200 tokens (one-time) shared across every AIDEN tool",
-      "1-5 brands per audit",
-      "Ad Library scraping",
-      "Color DNA extraction",
-      "Basic AIDEN analysis",
-    ],
-    cta: "Get started",
-    href: "/register",
-    highlight: false,
-    plan: null,
-  },
-  {
-    name: "Pro",
-    price: "$49",
-    period: "/month",
-    tokens: "1,500",
-    tokenDetail: "tokens/month",
-    description: "For active teams — ~10 audits",
-    features: [
-      "1,500 tokens per month",
-      "2-5 brands per audit",
-      "Full AIDEN strategic analysis",
-      "Brand Intel (PR, press, campaigns)",
-      "Social Pulse sentiment analysis",
-      "Ad analytics dashboard",
-      "PDF export & share links",
-      "Top up tokens via AIDEN Hub",
-    ],
-    cta: "Subscribe",
-    href: null,
-    highlight: true,
-    plan: "pro" as PlanKey,
-  },
-  {
-    name: "Agency",
-    price: "$199",
-    period: "/month",
-    tokens: "5,000",
-    tokenDetail: "tokens/month",
-    description: "For agencies — ~35 audits",
-    features: [
-      "5,000 tokens per month",
-      "Everything in Pro",
-      "White-label reports",
-      "Bulk audit API access",
-      "Team seats (coming soon)",
-      "Dedicated support",
-      "Top up tokens via AIDEN Hub",
-    ],
-    cta: "Subscribe",
-    href: null,
-    highlight: false,
-    plan: "agency" as PlanKey,
-  },
-];
+// AIDEN moved to unified token billing across all hub apps in April 2026.
+// Brand Audit is metered against the shared token balance held by Gateway.
+// There are no per-product subscriptions any more. The "Get tokens" button
+// below routes users to the Gateway pricing page where token packs and
+// subscriptions are sold.
+// Source of truth for costs: aiden-gateway/lib/tokens.ts (brand_audit key).
+
+const TOKEN_COSTS = {
+  per_brand: 40,
+  strategic_analysis: 20,
+} as const;
+
+const FREE_TOKEN_GRANT = 200;
+
+const GATEWAY_PRICING_URL = "https://www.aiden.services/pricing";
 
 export default function PricingPage() {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
     if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => {
-      setIsLoggedIn(!!data.user);
+      setIsAuthenticated(!!data.user);
     });
   }, []);
-
-  async function handleCheckout(plan: PlanKey) {
-    if (!isLoggedIn) {
-      toast.error("Please sign in first to purchase a plan.");
-      router.push("/login");
-      return;
-    }
-
-    setLoading(plan);
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        redirect: "error",
-        body: JSON.stringify({ plan }),
-      });
-
-      if (res.status === 401) {
-        toast.error("Session expired. Redirecting to login...");
-        router.push("/login");
-        return;
-      }
-
-      if (!res.ok) {
-        const text = await res.text();
-        let errorMsg = `Server error (${res.status})`;
-        try { errorMsg = JSON.parse(text).error || errorMsg; } catch { /* not JSON */ }
-        toast.error(errorMsg);
-        return;
-      }
-
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error || "Failed to create checkout session.");
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      if (err instanceof TypeError && err.message.includes("redirect")) {
-        toast.error("Session expired. Please sign in again.");
-        router.push("/login");
-      } else {
-        toast.error("Something went wrong. Please try again.");
-      }
-    } finally {
-      setLoading(null);
-    }
-  }
 
   return (
     <div className="min-h-screen bg-black-ink">
@@ -147,8 +43,11 @@ export default function PricingPage() {
               </h1>
             </Link>
             <div className="flex items-center gap-4">
-              {isLoggedIn ? (
-                <Link href="/dashboard" className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide">
+              {isAuthenticated ? (
+                <Link
+                  href="/dashboard"
+                  className="bg-red-hot px-4 py-2 text-sm font-bold text-white hover:bg-red-dim transition-colors uppercase tracking-wide"
+                >
                   Dashboard
                 </Link>
               ) : (
@@ -173,121 +72,115 @@ export default function PricingPage() {
       </header>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        {/* Hero */}
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-red-hot uppercase tracking-tight">
-            Token-Based Pricing
+            Brand Audit runs on tokens
           </h2>
-          <p className="mt-4 text-lg text-white-muted uppercase tracking-wide">
-            Pay for what you use. Every audit costs tokens.
+          <p className="mt-4 text-lg text-white-muted max-w-2xl mx-auto">
+            Pay for what you use. One shared token balance across every AIDEN tool.
+            No per-product subscriptions, no monthly minimums.
           </p>
-          <div className="mt-6 flex items-center justify-center gap-6 text-xs text-white-dim font-geist-mono">
-            <span className="flex items-center gap-1.5">
-              <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              2 brands ≈ 100 tokens
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              3 brands ≈ 140 tokens
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Coins className="h-3.5 w-3.5 text-orange-accent" />
-              5 brands ≈ 220 tokens
-            </span>
+        </div>
+
+        {/* Per-operation costs */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-black-deep border-2 border-border-subtle p-8">
+              <div className="flex items-baseline gap-3 mb-3">
+                <span className="text-5xl font-bold text-orange-accent font-geist-mono">
+                  {TOKEN_COSTS.per_brand}
+                </span>
+                <span className="text-sm text-white-muted uppercase tracking-widest">tokens</span>
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2">
+                Per brand audited
+              </h3>
+              <p className="text-sm text-white-muted">
+                Logo scraping, Facebook Ad Library, colour DNA extraction, brand intel,
+                and social sentiment. All real data sources.
+              </p>
+            </div>
+
+            <div className="bg-black-deep border-2 border-border-subtle p-8">
+              <div className="flex items-baseline gap-3 mb-3">
+                <span className="text-5xl font-bold text-orange-accent font-geist-mono">
+                  {TOKEN_COSTS.strategic_analysis}
+                </span>
+                <span className="text-sm text-white-muted uppercase tracking-widest">tokens</span>
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-2">
+                Strategic analysis
+              </h3>
+              <p className="text-sm text-white-muted">
+                AIDEN synthesises competitive positioning, white-space opportunities,
+                and recommended actions across all audited brands.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 border-2 border-border-subtle bg-black-deep p-5 text-center">
+            <p className="text-sm text-white-dim font-geist-mono">
+              Example: 3 brands = ({TOKEN_COSTS.per_brand} &times; 3) + {TOKEN_COSTS.strategic_analysis} ={" "}
+              <span className="text-orange-accent font-bold">
+                {TOKEN_COSTS.per_brand * 3 + TOKEN_COSTS.strategic_analysis} tokens
+              </span>
+            </p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
-          {tiers.map((tier) => (
-            <div
-              key={tier.name}
-              className={`border-2 p-8 flex flex-col ${
-                tier.highlight
-                  ? "border-red-hot bg-red-hot/5"
-                  : "border-border-subtle bg-black-deep"
-              }`}
-            >
-              {tier.highlight && (
-                <span className="self-start text-[10px] font-bold text-red-hot uppercase tracking-widest mb-4 border border-red-hot px-2 py-0.5">
-                  Most Popular
-                </span>
-              )}
-              <h3 className="text-lg font-bold text-white uppercase">{tier.name}</h3>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-white">{tier.price}</span>
-                {tier.period && (
-                  <span className="text-sm text-white-dim">{tier.period}</span>
-                )}
-              </div>
-              <div className="mt-2 flex items-center gap-1.5">
-                <Coins className="h-3.5 w-3.5 text-orange-accent" />
-                <span className="text-sm font-bold text-orange-accent font-geist-mono">
-                  {tier.tokens}
-                </span>
-                <span className="text-xs text-white-dim">{tier.tokenDetail}</span>
-              </div>
-              <p className="mt-2 text-sm text-white-dim">{tier.description}</p>
-
-              <ul className="mt-8 flex-1 space-y-3">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-white-muted">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-hot" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-8">
-                {tier.href ? (
-                  <Link
-                    href={tier.href}
-                    className="block w-full px-4 py-3 text-center text-sm font-bold uppercase tracking-wide transition-colors border-2 border-border-subtle text-white hover:bg-white/5"
-                  >
-                    {tier.cta}
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => tier.plan && handleCheckout(tier.plan)}
-                    disabled={loading === tier.plan}
-                    className={`block w-full px-4 py-3 text-center text-sm font-bold uppercase tracking-wide transition-colors disabled:opacity-50 ${
-                      tier.highlight
-                        ? "bg-red-hot text-white hover:bg-red-dim border-2 border-red-hot"
-                        : "border-2 border-border-subtle text-white hover:bg-white/5"
-                    }`}
-                  >
-                    {loading === tier.plan ? (
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                    ) : (
-                      tier.cta
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+        {/* Free trial card */}
+        <div className="max-w-2xl mx-auto mb-12">
+          <div className="bg-black-deep border-2 border-orange-accent p-8 text-center">
+            <span className="text-[10px] font-bold text-orange-accent uppercase tracking-widest border border-orange-accent px-2 py-0.5 inline-block mb-4">
+              New users
+            </span>
+            <h3 className="text-2xl font-bold text-white uppercase mb-3">
+              {FREE_TOKEN_GRANT} tokens free
+            </h3>
+            <p className="text-sm text-white-muted mb-2">
+              Every new AIDEN account gets {FREE_TOKEN_GRANT} tokens on sign-up. One-time grant,
+              never expires.
+            </p>
+            <p className="text-xs text-white-dim font-geist-mono">
+              ≈ {Math.floor(FREE_TOKEN_GRANT / (TOKEN_COSTS.per_brand + TOKEN_COSTS.strategic_analysis))} full single-brand audits
+            </p>
+            {!isAuthenticated && (
+              <a
+                href="https://www.aiden.services/login?next=https%3A%2F%2Fbrandaudit.aiden.services%2Fdashboard"
+                className="mt-6 inline-block py-3 px-8 font-bold text-sm uppercase tracking-wide transition-all bg-red-hot text-white border-2 border-red-hot hover:bg-red-dim"
+              >
+                Start free
+              </a>
+            )}
+          </div>
         </div>
 
-        <div className="max-w-3xl mx-auto mt-20">
-          <div className="border-2 border-border-subtle bg-black-deep p-8 text-center">
-            <Coins className="h-6 w-6 text-orange-accent mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-white uppercase mb-2">
-              Token Balance
-            </h3>
-            <p className="text-sm text-white-dim mb-4">
-              Token balance is managed through AIDEN Hub.
+        {/* Get tokens CTA */}
+        <div className="max-w-2xl mx-auto mb-16">
+          <div className="bg-black-deep border-2 border-red-hot p-10 text-center">
+            <h3 className="text-2xl font-bold text-white uppercase mb-3">Need more tokens?</h3>
+            <p className="text-sm text-white-muted mb-6">
+              Subscriptions or one-off token packs. Buy through the AIDEN Hub,
+              use across every tool.
             </p>
             <a
-              href="https://www.aiden.services/pricing"
+              href={GATEWAY_PRICING_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-orange-accent text-black font-bold text-sm uppercase tracking-wide hover:bg-orange-accent/80 transition-colors"
+              className="inline-flex items-center gap-2 py-4 px-10 font-bold text-base uppercase tracking-wide bg-red-hot text-white border-2 border-red-hot hover:bg-red-dim transition-colors"
             >
+              Get tokens on AIDEN Hub
               <ExternalLink className="h-4 w-4" />
-              Get Tokens on AIDEN Hub
             </a>
+            <p className="mt-4 text-xs text-white-dim uppercase tracking-wide">
+              Opens AIDEN Hub pricing
+            </p>
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto mt-20 border-2 border-border-subtle bg-black-deep p-8">
+        {/* How Tokens Work */}
+        <div className="max-w-2xl mx-auto mt-4 border-2 border-border-subtle bg-black-deep p-8">
           <h3 className="text-lg font-bold text-white uppercase mb-4">How Tokens Work</h3>
           <div className="space-y-3 text-sm text-white-muted">
             <div className="flex items-start gap-3">
@@ -296,11 +189,11 @@ export default function PricingPage() {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">02</span>
-              <p>Subscription plans include monthly token grants that refresh every billing cycle. Unused tokens roll over.</p>
+              <p>Every AIDEN tool charges against your shared token balance. Brief Intelligence, Brand Audit, Pitch, Listen, Synthetic Research, all of it.</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">03</span>
-              <p>Need more? Purchase tokens through AIDEN Hub at aiden.services/pricing.</p>
+              <p>Subscription plans grant tokens monthly. One-off packs let you top up without a subscription. Both buyable through AIDEN Hub.</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-orange-accent font-bold font-geist-mono w-8 flex-shrink-0">04</span>
@@ -308,6 +201,32 @@ export default function PricingPage() {
             </div>
           </div>
         </div>
+
+        {/* Authenticated billing link */}
+        {isAuthenticated && (
+          <div className="max-w-md mx-auto mt-12 text-center space-y-3">
+            <a
+              href={GATEWAY_PRICING_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-border-subtle bg-black-deep px-5 py-2.5 text-sm font-medium text-white-muted hover:text-white hover:border-white transition-colors"
+            >
+              Manage billing on AIDEN Hub
+            </a>
+            <p className="text-xs text-white-dim">
+              <Link
+                href="/dashboard"
+                className="text-orange-accent hover:text-red-hot transition-colors"
+              >
+                Back to dashboard
+              </Link>
+            </p>
+          </div>
+        )}
+
+        <p className="text-center text-sm text-white-dim mt-8 uppercase tracking-wide">
+          Payments processed securely by Stripe through AIDEN Hub. Cancel anytime.
+        </p>
       </section>
     </div>
   );
