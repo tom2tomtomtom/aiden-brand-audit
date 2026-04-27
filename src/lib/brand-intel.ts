@@ -58,7 +58,13 @@ Respond with ONLY a valid JSON object (no markdown, no explanation):
   "citations": [{"url": "...", "title": "..."}]
 }
 
-Include ONLY items you actually found with real URLs. Do not fabricate entries. If a category has no results, use an empty array.`,
+Include ONLY items you actually found with real URLs. Do not fabricate entries. If a category has no results, use an empty array.
+
+Your final message MUST be the JSON object only — no preamble, no explanation, no markdown fences. Start your final message with the character "{" and end it with "}".`,
+        },
+        {
+          role: "assistant",
+          content: "{",
         },
       ],
     });
@@ -67,9 +73,13 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
       (block) => block.type === "text"
     );
 
-    const fullText = textBlocks
+    const rawText = textBlocks
       .map((b) => ("text" in b ? (b as { text: string }).text : ""))
       .join("");
+    // Prefilled assistant message starts with "{"; web-search responses
+    // strip the prefill from `response.content`, so re-prepend it before
+    // extracting JSON.
+    const fullText = rawText.trimStart().startsWith("{") ? rawText : `{${rawText}`;
     console.log(`[brand-intel] Got ${fullText.length} chars response for ${brandName}`);
 
     const citations: { url: string; title: string }[] = [];

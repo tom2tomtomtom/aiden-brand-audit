@@ -82,7 +82,7 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
           <Newspaper className="h-8 w-8 text-white-dim mx-auto mb-4" />
           <p className="text-white-muted text-sm mb-2">No brand intelligence data available</p>
           <p className="text-white-dim text-xs">
-            Set your ANTHROPIC_API_KEY to enable Claude web search for PR, press coverage, and brand activations.
+            Web search returned no PR, press coverage, or brand activations for these brands. Try again or run with a more well-known brand.
           </p>
         </div>
       </div>
