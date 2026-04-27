@@ -14,6 +14,50 @@ function getPublicUrl(request: NextRequest): string {
   return request.nextUrl.href;
 }
 
+const GW_RT_COOKIE_NAME = 'aiden-gw-rt';
+const RT_MAX_AGE = 30 * 24 * 60 * 60;
+
+async function refreshFromGatewayRT(
+  request: NextRequest
+): Promise<NextResponse | null> {
+  const rt = request.cookies.get(GW_RT_COOKIE_NAME)?.value;
+  if (!rt) return null;
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { Cookie: `${GW_RT_COOKIE_NAME}=${rt}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.jwt || !data.refreshToken) return null;
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-middleware-auth-verified', '1');
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+    response.cookies.set(GW_COOKIE_NAME, data.jwt, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      domain: COOKIE_DOMAIN,
+      path: '/',
+      sameSite: 'lax',
+      maxAge: 30 * 60,
+    });
+    response.cookies.set(GW_RT_COOKIE_NAME, data.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      domain: COOKIE_DOMAIN,
+      path: '/',
+      sameSite: 'lax',
+      maxAge: RT_MAX_AGE,
+    });
+
+    return response;
+  } catch {
+    return null;
+  }
+}
+
 async function refreshFromGateway(
   request: NextRequest
 ): Promise<NextResponse | null> {
@@ -93,7 +137,16 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Tier 2: Refresh from Gateway
+  // Tier 2a: Refresh via Gateway refresh token (no Supabase dependency)
+  const rtResult = await refreshFromGatewayRT(request);
+  if (rtResult) {
+    if (isAuthPage) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return rtResult;
+  }
+
+  // Tier 2b: Refresh from Gateway via Supabase cookies (legacy fallback)
   const refreshResult = await refreshFromGateway(request);
   if (refreshResult) {
     if (isAuthPage) {
