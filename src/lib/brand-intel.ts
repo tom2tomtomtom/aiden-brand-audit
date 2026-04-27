@@ -23,7 +23,7 @@ export async function gatherBrandIntel(brandName: string, website: string): Prom
   try {
     console.log(`[brand-intel] Researching ${brandName} via Claude web search...`);
     const response = await client.beta.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
       betas: ["web-search-2025-03-05"],
       tools: [
