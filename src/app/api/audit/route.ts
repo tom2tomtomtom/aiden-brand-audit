@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
+import { resolveWebsiteIdentity } from "@/lib/website-identity";
 import { collectSocialPosts } from "@/lib/social-scraper";
 import { analyzeSentiment } from "@/lib/sentiment-analyzer";
 import { extractColors } from "@/lib/colors";
@@ -119,6 +120,26 @@ export async function POST(request: NextRequest) {
             logos = { primaryLogo: null, logoVariants: [], favicon: null, brandName: brand.name, brandColors: null };
           }
 
+          // If user didn't pre-select a verified Facebook page, try to
+          // discover one from the brand website (og:meta + FB footer
+          // links). Stops short brand names ("the memo") from matching
+          // unrelated FB pages by keyword fallback.
+          let resolvedFacebookPageId: string | undefined = brand.facebookPageId;
+          if (!resolvedFacebookPageId && brand.website) {
+            try {
+              const identity = await resolveWebsiteIdentity(brand.website);
+              if (identity.facebookPageId) {
+                resolvedFacebookPageId = identity.facebookPageId;
+                send({
+                  type: "progress",
+                  step: `Identified ${brand.name}`,
+                  progress: brandProgress + 12,
+                  detail: `Matched Facebook page from ${brand.website}`,
+                });
+              }
+            } catch { /* non-critical, fall through */ }
+          }
+
           send({
             type: "progress",
             step: `Scraping Facebook ads for ${brand.name}`,
@@ -128,7 +149,7 @@ export async function POST(request: NextRequest) {
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];
           try {
-            ads = await collectAds(brand.facebookPage || brand.name, "ALL", 50, brand.facebookPageId);
+            ads = await collectAds(brand.facebookPage || brand.name, "ALL", 50, resolvedFacebookPageId);
           } catch {
             ads = [];
           }

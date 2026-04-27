@@ -232,12 +232,30 @@ async function resolvePageId(brandName: string): Promise<string | null> {
     });
     if (closeMatch) return closeMatch.page_id;
 
-    const bestByLikes = candidates
-      .filter((c) => normalize(c.name).includes(normalBrand) || normalBrand.includes(normalize(c.name)))
-      .sort((a, b) => b.likes - a.likes)[0];
-    if (bestByLikes && bestByLikes.likes > 1000) return bestByLikes.page_id;
-
+    // No like-based fallback: returning a popular but unrelated page
+    // (e.g. "Memo" literary page when user means thememo.com.au) was
+    // the 2026-04-27 wrong-brand bug. Prefer no ads over wrong ads —
+    // website-identity.ts is the trusted disambiguator now.
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a Facebook page_id from a known FB alias (e.g. "thememohq"
+ * scraped from a brand website's footer link). Stricter than
+ * resolvePageId — requires an exact alias match rather than a fuzzy
+ * name match — because the alias comes from the brand's own site and
+ * is treated as authoritative.
+ */
+export async function resolvePageIdByAlias(alias: string): Promise<string | null> {
+  try {
+    const result = await searchCompanies(alias);
+    const candidates = result.searchResults || [];
+    const wantAlias = alias.toLowerCase();
+    const exact = candidates.find((c) => (c.page_alias || "").toLowerCase() === wantAlias);
+    return exact?.page_id ?? null;
   } catch {
     return null;
   }
