@@ -114,6 +114,16 @@ async function refreshFromGateway(
 }
 
 export async function middleware(request: NextRequest) {
+  // BUG-BA-011: 301 redirect from non-canonical domain to canonical.
+  // When DNS for brandaudit.aiden.services (no hyphen) resolves to Railway,
+  // this redirect ensures all traffic lands on brand-audit.aiden.services.
+  const host = request.headers.get("host") ?? "";
+  if (host === "brandaudit.aiden.services") {
+    const canonical = new URL(request.url);
+    canonical.host = "brand-audit.aiden.services";
+    return NextResponse.redirect(canonical.toString(), { status: 301 });
+  }
+
   let response = NextResponse.next({ request });
 
   const protectedPaths = ["/dashboard", "/account"];
