@@ -76,7 +76,7 @@ export default async function HomePage() {
           </div>
 
           <p className="mt-4 text-xs text-white-dim uppercase tracking-wide">
-            2 free audits per month — no credit card required
+            2 free audits per month. No credit card required.
           </p>
         </div>
 

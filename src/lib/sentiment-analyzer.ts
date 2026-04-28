@@ -90,7 +90,7 @@ Respond with ONLY valid JSON:
     "negative": [{"theme": "short label", "frequency": "how common", "example": "verbatim quote from posts"}]
   },
   "notableQuotes": [{"text": "verbatim from the post", "sentiment": "positive|negative|mixed", "platform": "tiktok|instagram|reddit", "author": "@handle", "context": "why this quote matters"}],
-  "brandPerception": "2-3 sentence summary of how the internet perceives this brand — be honest, cite evidence from the posts",
+  "brandPerception": "2-3 sentence summary of how the internet perceives this brand. Be honest and cite evidence from the posts.",
   "reputationRisks": ["specific risk visible in the conversation data"],
   "advocacyDrivers": ["what makes people defend or recommend this brand"],
   "platformInsights": [{"platform": "tiktok|instagram|reddit", "dominantSentiment": "description", "keyObservation": "what's different about how this platform talks about the brand"}],

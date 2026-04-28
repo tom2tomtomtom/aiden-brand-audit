@@ -105,7 +105,7 @@ export function VisualDna({
             <ul className="space-y-2">
               {analysis.visualDna.sharedPatterns.map((pattern: string, i: number) => (
                 <li key={i} className="flex gap-2 text-sm text-white-muted">
-                  <span className="text-red-hot">—</span>
+                  <span className="text-red-hot" aria-hidden="true">-</span>
                   {pattern}
                 </li>
               ))}
@@ -141,7 +141,7 @@ export function VisualDna({
             brand.adCreativeUrls.length > 0 ? (
               <div key={brand.name}>
                 <p className="text-xs text-white-dim uppercase tracking-wide mb-3">
-                  {brand.name} — {brand.adCreativeUrls.length} creatives
+                  {brand.name}: {brand.adCreativeUrls.length} creatives
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {brand.adCreativeUrls.slice(0, 16).map((url, i) => (

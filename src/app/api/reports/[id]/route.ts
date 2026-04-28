@@ -7,7 +7,7 @@ import { loadReport } from "@/lib/supabase/reports";
  * ACCESS MODEL: Secret link. Anyone with the UUID can view the full report.
  * Report IDs are cryptographically random (crypto.randomUUID, see
  * app/api/audit/route.ts) and are NOT enumerable. This endpoint is the backing
- * for the /report/[id] "SharedReportPage" — same model as Google Docs
+ * for the /report/[id] "SharedReportPage". Same model as Google Docs
  * "anyone with the link" sharing.
  *
  * If owner-only access is ever required, add requireAuth() here and compare

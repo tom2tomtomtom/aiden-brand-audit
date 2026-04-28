@@ -147,7 +147,7 @@ export async function scrapeReddit(brandName: string): Promise<SocialPost[]> {
     return (data.posts || []).slice(0, 20).map((p) => {
       const selftext = p.selftext?.slice(0, 400) || "";
       const fullText = selftext
-        ? `${p.title} — ${selftext}`
+        ? `${p.title}: ${selftext}`
         : p.title;
 
       return {

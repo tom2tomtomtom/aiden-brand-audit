@@ -1,7 +1,7 @@
 /**
  * ScrapeCreators Facebook Ad Library API Client
  *
- * Direct API access to Facebook Ad Library data — no Playwright, no Apify polling.
+ * Direct API access to Facebook Ad Library data. No Playwright, no Apify polling.
  * Ported from aiden-creative-agent.
  */
 
@@ -234,7 +234,7 @@ async function resolvePageId(brandName: string): Promise<string | null> {
 
     // No like-based fallback: returning a popular but unrelated page
     // (e.g. "Memo" literary page when user means thememo.com.au) was
-    // the 2026-04-27 wrong-brand bug. Prefer no ads over wrong ads —
+    // the 2026-04-27 wrong-brand bug. Prefer no ads over wrong ads.
     // website-identity.ts is the trusted disambiguator now.
     return null;
   } catch {
@@ -245,8 +245,8 @@ async function resolvePageId(brandName: string): Promise<string | null> {
 /**
  * Resolve a Facebook page_id from a known FB alias (e.g. "thememohq"
  * scraped from a brand website's footer link). Stricter than
- * resolvePageId — requires an exact alias match rather than a fuzzy
- * name match — because the alias comes from the brand's own site and
+ * resolvePageId. Requires an exact alias match rather than a fuzzy
+ * name match, because the alias comes from the brand's own site and
  * is treated as authoritative.
  */
 export async function resolvePageIdByAlias(alias: string): Promise<string | null> {
@@ -262,7 +262,7 @@ export async function resolvePageIdByAlias(alias: string): Promise<string | null
 }
 
 /**
- * Collect ads for a brand — resolves the correct Facebook page, then fetches ads by page ID.
+ * Collect ads for a brand. Resolves the correct Facebook page, then fetches ads by page ID.
  * Falls back to keyword search only as a last resort.
  */
 export async function collectAds(brandName: string, country = "ALL", maxAds = 50, pageId?: string) {
@@ -314,7 +314,7 @@ export async function collectAds(brandName: string, country = "ALL", maxAds = 50
       });
 
       if (rawAds.length === 0) {
-        console.log(`[ads] Keyword search for "${brandName}" returned ${candidates.length} results but none from a matching page — discarding to avoid false matches`);
+        console.log(`[ads] Keyword search for "${brandName}" returned ${candidates.length} results but none from a matching page. Discarding to avoid false matches.`);
       }
     } catch {
       return [];

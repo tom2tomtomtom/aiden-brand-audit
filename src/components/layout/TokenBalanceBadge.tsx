@@ -34,7 +34,7 @@ export function TokenBalanceBadge() {
 
   // Render even when data hasn't arrived yet (show a placeholder) so the
   // header doesn't flash a missing slot, and so an API/env misconfig
-  // surfaces as "—" rather than a silent zero. Previous versions hid the
+  // surfaces as a placeholder rather than a silent zero. Previous versions hid the
   // pill entirely when the fetch returned nothing, which looked like a
   // legitimate 0-token state to users.
   const balance = data?.balance ?? null;
@@ -58,7 +58,7 @@ export function TokenBalanceBadge() {
         className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide border-2 transition-all ${colorClass}`}
       >
         <Coins className="h-3.5 w-3.5" />
-        <span className="font-geist-mono tabular-nums">{isUnknown ? "—" : balance}</span>
+        <span className="font-geist-mono tabular-nums">{isUnknown ? "?" : balance}</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -68,7 +68,7 @@ export function TokenBalanceBadge() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-white-dim uppercase tracking-wide">Token Balance</span>
               <span className={`text-lg font-bold font-geist-mono tabular-nums ${isUnknown ? "text-white-dim" : isLow ? "text-red-hot" : isHealthy ? "text-green-500" : "text-orange-accent"}`}>
-                {isUnknown ? "—" : balance}
+                {isUnknown ? "?" : balance}
               </span>
             </div>
             {isUnknown && (

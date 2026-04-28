@@ -538,7 +538,7 @@ function DashboardContent() {
               <div
                 role="status"
                 aria-live="polite"
-                aria-label={`Audit progress: ${Math.round(progress)}% — ${currentStep}`}
+                aria-label={`Audit progress: ${Math.round(progress)}%. ${currentStep}`}
                 className="mb-6"
               >
                 <div className="flex justify-between text-xs text-white-dim uppercase tracking-wide mb-2">

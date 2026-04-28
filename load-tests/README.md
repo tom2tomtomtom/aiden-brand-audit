@@ -1,6 +1,6 @@
-# Load tests — Brand Audit
+# Load tests: Brand Audit
 
-k6 scripts. Do NOT run against live without express user approval — each iteration burns Apify + Claude budget.
+k6 scripts. Do NOT run against live without express user approval. Each iteration burns Apify + Claude budget.
 
 ## Install
 
@@ -32,12 +32,12 @@ At 8 concurrent VUs each running an audit, you are kicking off ~50-100 full bran
 - ~40 tokens/brand × 100 brands = 4000 tokens
 - Multiple scrape-creators API calls per brand (ad library, social, sentiment)
 
-**Only run this in staging or against a dedicated load-test AIDEN_SERVICE_KEY.** The fail-closed path that now returns 503 without a service key is intentional — use a staging key with capped spend.
+**Only run this in staging or against a dedicated load-test AIDEN_SERVICE_KEY.** The fail-closed path that now returns 503 without a service key is intentional. Use a staging key with capped spend.
 
 ## Thresholds
 
-- `http_req_failed < 5%` — allows some 503s since fail-closed may kick in.
-- `http_req_duration p(95) < 120s` — audits are slow by design (Claude + Apify); anything over 120s p95 means the 15s SSE keepalive isn't carrying and Railway's 60s idle timeout is firing.
+- `http_req_failed < 5%`: allows some 503s since fail-closed may kick in.
+- `http_req_duration p(95) < 120s`: audits are slow by design (Claude + Apify). Anything over 120s p95 means the 15s SSE keepalive is not carrying and Railway's 60s idle timeout is firing.
 
 ## What this will catch
 

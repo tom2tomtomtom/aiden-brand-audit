@@ -59,7 +59,7 @@ function extractMetaAndTitle(html: string): { siteName: string | null; descripti
 }
 
 /**
- * Fetch a brand website and extract identity signals — real site name,
+ * Fetch a brand website and extract identity signals: real site name,
  * description, and (most importantly) the Facebook page linked from
  * the site. Used to disambiguate brands with generic names ("the memo",
  * "moment", "spring") from unrelated FB pages that happen to share the
