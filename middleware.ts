@@ -114,15 +114,12 @@ async function refreshFromGateway(
 }
 
 export async function middleware(request: NextRequest) {
-  // BUG-BA-011: 301 redirect from non-canonical domain to canonical.
-  // When DNS for brandaudit.aiden.services (no hyphen) resolves to Railway,
-  // this redirect ensures all traffic lands on brand-audit.aiden.services.
-  const host = request.headers.get("host") ?? "";
-  if (host === "brandaudit.aiden.services") {
-    const canonical = new URL(request.url);
-    canonical.host = "brand-audit.aiden.services";
-    return NextResponse.redirect(canonical.toString(), { status: 301 });
-  }
+  // BUG-BA-011 redirect REMOVED 2026-04-28. Two reasons:
+  // 1. Conflict: project CLAUDE.md says canonical IS brandaudit (no hyphen);
+  //    Tom's 2026-04-28 launch decision said brand-audit (with hyphen). Needs reconciliation.
+  // 2. The previous code leaked Railway's internal port 8080 in the redirect target,
+  //    AND brand-audit.aiden.services DNS does not exist yet. Restoring production.
+  // Re-enable only after: (a) canonical decision confirmed, (b) DNS CNAME live, (c) port stripped.
 
   let response = NextResponse.next({ request });
 
