@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, Clock, FileText, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Clock, FileText, ArrowRight, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
@@ -189,7 +189,11 @@ function DashboardContent() {
   const [progressDetail, setProgressDetail] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsPage, setReportsPage] = useState(1);
   const [reportsLoading, setReportsLoading] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
@@ -208,17 +212,49 @@ function DashboardContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserEmail(user.email ?? null);
 
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setPastReports(data);
-        }
-      } catch { /* non-critical */ }
-      setReportsLoading(false);
+      await loadReports(1);
     }
     loadUserData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadReports(page: number) {
+    setReportsLoading(true);
+    try {
+      const res = await fetch(`/api/reports?page=${page}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Support both old array format and new paginated format
+        if (Array.isArray(data)) {
+          setPastReports(data);
+          setReportsTotal(data.length);
+        } else {
+          setPastReports(data.reports ?? []);
+          setReportsTotal(data.total ?? 0);
+        }
+        setReportsPage(page);
+      }
+    } catch { /* non-critical */ }
+    setReportsLoading(false);
+  }
+
+  async function deleteReport(id: string) {
+    try {
+      const res = await fetch("/api/reports", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        toast.success("Report deleted");
+        await loadReports(reportsPage);
+      } else {
+        toast.error("Failed to delete report");
+      }
+    } catch {
+      toast.error("Failed to delete report");
+    }
+  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -276,11 +312,15 @@ function DashboardContent() {
     setProgress(0);
     setCurrentStep("Initializing audit...");
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       const response = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brands: validBrands }),
+        signal: abortController.signal,
       });
 
       if (response.status === 402) {
@@ -333,9 +373,18 @@ function DashboardContent() {
         }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Audit failed");
+      if (error instanceof Error && error.name === "AbortError") {
+        toast.info("Audit cancelled. Tokens not charged.");
+      } else {
+        toast.error(error instanceof Error ? error.message : "Audit failed");
+      }
       setIsAnalyzing(false);
+      abortControllerRef.current = null;
     }
+  }
+
+  function cancelAudit() {
+    abortControllerRef.current?.abort();
   }
 
   return (
@@ -512,6 +561,15 @@ function DashboardContent() {
                   {progress < 75 ? "Collecting intelligence..." : "Generating strategic analysis..."}
                 </span>
               </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={cancelAudit}
+                  className="flex items-center gap-2 text-white-dim hover:text-red-hot text-xs font-bold uppercase tracking-wide transition-colors border border-border-subtle px-4 py-2 hover:border-red-hot"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel Audit
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -523,51 +581,90 @@ function DashboardContent() {
               Past Reports
             </h3>
             <span className="text-xs text-white-dim font-geist-mono">
-              {pastReports.length} report{pastReports.length !== 1 ? "s" : ""}
+              {reportsTotal} report{reportsTotal !== 1 ? "s" : ""}
             </span>
           </div>
 
           {reportsLoading ? (
             <div className="bg-black-deep border-2 border-border-subtle p-8 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-white-dim" />
+              <Loader2 className="h-5 w-5 animate-spin text-white-dim" aria-hidden="true" />
             </div>
           ) : pastReports.length === 0 ? (
             <div className="bg-black-deep border-2 border-border-subtle p-8 text-center">
               <p className="text-sm text-white-dim">No reports yet. Run your first audit above.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {pastReports.map((report) => (
-                <Link
-                  key={report.id}
-                  href={`/report/${report.id}`}
-                  className="flex items-center justify-between bg-black-deep border-2 border-border-subtle p-4 hover:border-red-hot transition-all group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white-full group-hover:text-red-hot transition-colors truncate">
-                      {report.brands.join(" vs ")}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[10px] text-white-dim font-geist-mono flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(report.created_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span className="text-[10px] text-white-dim font-geist-mono">
-                        {Math.round(report.duration / 1000)}s
-                      </span>
-                      <span className="text-[10px] text-orange-accent font-geist-mono">
-                        {report.brands.length} brands
-                      </span>
-                    </div>
+            <>
+              <div className="space-y-2">
+                {pastReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex items-center gap-2 bg-black-deep border-2 border-border-subtle hover:border-red-hot transition-all group"
+                  >
+                    <Link
+                      href={`/report/${report.id}`}
+                      className="flex-1 flex items-center justify-between p-4 min-w-0"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white-full group-hover:text-red-hot transition-colors truncate">
+                          {report.brands.join(" vs ")}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] text-white-dim font-geist-mono flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(report.created_at).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className="text-[10px] text-white-dim font-geist-mono">
+                            {Math.round(report.duration / 1000)}s
+                          </span>
+                          <span className="text-[10px] text-orange-accent font-geist-mono">
+                            {report.brands.length} brands
+                          </span>
+                        </div>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0 mr-2" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this report? This cannot be undone.")) {
+                          deleteReport(report.id);
+                        }
+                      }}
+                      aria-label={`Delete report: ${report.brands.join(" vs ")}`}
+                      className="flex-shrink-0 p-4 text-white-dim hover:text-red-hot transition-colors border-l border-border-subtle"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0" />
-                </Link>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {reportsTotal > PAGE_SIZE && (
+                <div className="flex items-center justify-between mt-4">
+                  <button
+                    onClick={() => loadReports(reportsPage - 1)}
+                    disabled={reportsPage <= 1}
+                    className="text-xs font-bold uppercase tracking-wide text-white-dim hover:text-red-hot disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-white-dim font-geist-mono">
+                    Page {reportsPage} of {Math.ceil(reportsTotal / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => loadReports(reportsPage + 1)}
+                    disabled={reportsPage >= Math.ceil(reportsTotal / PAGE_SIZE)}
+                    className="text-xs font-bold uppercase tracking-wide text-white-dim hover:text-red-hot disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
