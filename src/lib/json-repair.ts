@@ -44,7 +44,7 @@ function repairJson(json: string): string {
     return match.replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
   });
 
-  // Try parsing — if it works, return
+  // Try parsing. If it works, return.
   try {
     JSON.parse(json);
     return json;

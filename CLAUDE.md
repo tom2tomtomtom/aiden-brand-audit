@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# AIDEN Brand Audit — Agent Guide
+# AIDEN Brand Audit: Agent Guide
 
 ## 1. What this tool is
 
@@ -19,7 +19,7 @@ Brand Audit is the strategic X-ray. The senior planner who pulls a cultural tear
 
 ## 4. Where it lives
 
-- Domain: `brandaudit.aiden.services` (no hyphen — matches Gateway dashboard tool array)
+- Domain: `brandaudit.aiden.services` (no hyphen, matches Gateway dashboard tool array)
 - Repo: `tom2tomtomtom/aiden-brand-audit`
 - Local: `/Users/tommyhyde/aiden-brand-audit`
 - Deployed: Railway project `aiden-brand-audit`, service `aiden-brand-audit` (production env). Auto-deploys from `main`. Vercel deploy fully retired 2026-04-19.
@@ -37,7 +37,7 @@ Brand Audit is the strategic X-ray. The senior planner who pulls a cultural tear
 - jose (JWT verify)
 - Sentry
 
-Note: see `AGENTS.md` — this Next.js has breaking changes from your training data. Read `node_modules/next/dist/docs/` before assuming APIs.
+Note: see `AGENTS.md`. This Next.js has breaking changes from your training data. Read `node_modules/next/dist/docs/` before assuming APIs.
 
 ## 6. Auth: Gateway integration
 
@@ -63,7 +63,7 @@ Pricing is Gateway-owned. Brand Audit has no local Stripe subscriptions. The `/p
 2. Loop: deduct per-brand, then strategic. ANY deduct failure → log partial, return 402. No retry.
 3. Pre-flight rollback on failure.
 
-Client: `/src/lib/gateway-tokens.ts` — fail-closed.
+Client: `/src/lib/gateway-tokens.ts` (fail-closed).
 
 Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 
@@ -73,23 +73,23 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 
 ## 8. Critical files
 
-- `/src/app/api/audit/route.ts` (~443 lines) — main SSE pipeline. Token deduction upfront, fail-closed.
-- `/src/lib/gateway-tokens.ts` — Gateway client, fail-closed on network errors.
-- `/src/lib/gateway-jwt.ts` — JWT verify via jose.
-- `/middleware.ts` — 3-tier auth.
-- `/src/lib/aiden-api.ts` — phantom brain strategic analysis via Claude.
-- `/src/lib/auth.ts` — `requireAuth()` + `getUser()`.
-- `/src/lib/types.ts` — BrandConfig, BrandData, AuditResults, StrategicAnalysis.
-- `/src/lib/tokens.ts` — local cost display.
-- `/src/lib/usage.ts` — legacy plan limits (Gateway authoritative).
-- `/src/app/api/tokens/route.ts` — GET balance for client.
-- `/src/lib/scrape-creators.ts` — Facebook Ad Library wrapper.
-- `/src/lib/social-scraper.ts` — TikTok + Instagram + Reddit.
-- `/src/lib/sentiment-analyzer.ts` — Claude sentiment on posts.
-- `/src/lib/brand-intel.ts` — Claude web search for press.
-- `/src/lib/apify.ts` — logo finder.
-- `/src/lib/colors.ts` — node-vibrant extraction.
-- `/src/lib/url-guard.ts` — SSRF validation (required for user-supplied URLs).
+- `/src/app/api/audit/route.ts` (~443 lines): main SSE pipeline. Token deduction upfront, fail-closed.
+- `/src/lib/gateway-tokens.ts`: Gateway client, fail-closed on network errors.
+- `/src/lib/gateway-jwt.ts`: JWT verify via jose.
+- `/middleware.ts`: 3-tier auth.
+- `/src/lib/aiden-api.ts`: phantom brain strategic analysis via Claude.
+- `/src/lib/auth.ts`: `requireAuth()` + `getUser()`.
+- `/src/lib/types.ts`: BrandConfig, BrandData, AuditResults, StrategicAnalysis.
+- `/src/lib/tokens.ts`: local cost display.
+- `/src/lib/usage.ts`: legacy plan limits (Gateway authoritative).
+- `/src/app/api/tokens/route.ts`: GET balance for client.
+- `/src/lib/scrape-creators.ts`: Facebook Ad Library wrapper.
+- `/src/lib/social-scraper.ts`: TikTok + Instagram + Reddit.
+- `/src/lib/sentiment-analyzer.ts`: Claude sentiment on posts.
+- `/src/lib/brand-intel.ts`: Claude web search for press.
+- `/src/lib/apify.ts`: logo finder.
+- `/src/lib/colors.ts`: node-vibrant extraction.
+- `/src/lib/url-guard.ts`: SSRF validation (required for user-supplied URLs).
 
 ## 9. Environment variables
 
@@ -100,13 +100,13 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 - `SCRAPE_CREATORS_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `APIFY_API_KEY`
-- `JWT_SECRET` — MUST match Gateway
+- `JWT_SECRET` (MUST match Gateway)
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 
 **Optional:**
 - `GATEWAY_URL` (default `https://www.aiden.services`)
 - `NEXT_PUBLIC_GATEWAY_URL`
-- `STRIPE_*` vars (SECRET_KEY, WEBHOOK_SECRET, PRICE_ID_PRO, PRICE_ID_AGENCY) — no longer read by any code (removed 2026-04-27). Safe to drop from Railway config.
+- `STRIPE_*` vars (SECRET_KEY, WEBHOOK_SECRET, PRICE_ID_PRO, PRICE_ID_AGENCY): no longer read by any code (removed 2026-04-27). Safe to drop from Railway config.
 - `SENTRY_*`
 
 ## 10. Deployment
@@ -150,7 +150,7 @@ No E2E tests. Playwright MCP configured (`.playwright-mcp/`) but unused.
 
 ## 14. Related
 
-- `AGENTS.md` — Next.js version note
+- `AGENTS.md`: Next.js version note
 - Vault: `~/Tom-Brain/AIDEN/AIDEN Hub.md`
 - Gateway: `https://www.aiden.services`
 - AIDEN API: `https://aiden-api-production.up.railway.app`

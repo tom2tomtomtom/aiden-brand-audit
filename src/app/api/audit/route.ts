@@ -22,7 +22,7 @@ const MAX_BRANDS = 10;
 // saved report row. Caps keep a stray/hostile caller from stuffing a
 // megabyte into our Claude prompts or the reports table. Website is
 // kept as a plain string (rather than z.url()) because collectors
-// accept bare domains like "example.com" — url-guard in the fetch
+// accept bare domains like "example.com"; url-guard in the fetch
 // layer is the actual SSRF gate.
 const BrandConfigSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
   const { brands } = parsed.data;
 
-  // Gateway token costs — MUST stay in sync with aiden-gateway/lib/tokens.ts
+  // Gateway token costs. MUST stay in sync with aiden-gateway/lib/tokens.ts
   // (TOKEN_COSTS.brand_audit). The Gateway is the authoritative billing
   // path; these constants only drive the pre-flight balance check below
   // and the `Insufficient tokens` error message. Drift here causes the
@@ -65,12 +65,12 @@ export async function POST(request: NextRequest) {
   const COST_PER_BRAND = 40;
   const COST_STRATEGIC_ANALYSIS = 20;
 
-  // In production we MUST fail closed when the Gateway service key is missing —
-  // otherwise we'd run a full multi-brand audit (Apify scraping, Claude analysis,
+  // In production we MUST fail closed when the Gateway service key is missing.
+  // Otherwise we'd run a full multi-brand audit (Apify scraping, Claude analysis,
   // logo discovery) with no billing path.
   const hasTokenService = !!process.env.AIDEN_SERVICE_KEY;
   if (!hasTokenService && process.env.NODE_ENV === 'production') {
-    console.error('[audit] AIDEN_SERVICE_KEY missing in production — refusing to run unbilled audit');
+    console.error('[audit] AIDEN_SERVICE_KEY missing in production. Refusing to run unbilled audit.');
     return new Response(
       JSON.stringify({ error: 'Token service unavailable' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } },
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
               type: "progress",
               step: `Analyzing sentiment for ${brand.name}`,
               progress: brandProgress + 55,
-              detail: `${allPosts.length} posts collected — Claude analyzing public perception`,
+              detail: `${allPosts.length} posts collected. Claude analyzing public perception.`,
             });
 
             let sentiment = null;
@@ -292,7 +292,7 @@ export async function POST(request: NextRequest) {
           type: "progress",
           step: "Analyzing competitive landscape",
           progress: 80,
-          detail: "Synthesizing strategic intelligence — this step takes 30-60 seconds",
+          detail: "Synthesizing strategic intelligence. This step takes 30-60 seconds.",
         });
 
         const aidenTicker = setInterval(() => {
@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
             type: "progress",
             step: "Analyzing competitive landscape",
             progress: 85,
-            detail: "Still processing — synthesizing ads, press, and social sentiment data",
+            detail: "Still processing. Synthesizing ads, press, and social sentiment data.",
           });
         }, 15_000);
 
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
           strategicAnalysis = {
             executiveSummary: {
               overview: "Strategic analysis could not be completed due to an error.",
-              keyFindings: ["Analysis unavailable — please retry"],
+              keyFindings: ["Analysis unavailable. Please retry."],
               strategicImplications: "Retry the audit.",
             },
             visualDna: { colorStrategies: {}, visualDifferentiation: "", sharedPatterns: [], uniqueElements: {} },
@@ -393,7 +393,7 @@ export async function POST(request: NextRequest) {
           const { saveReport } = await import("@/lib/supabase/reports");
           const savedId = await saveReport(results, auth.user.id);
           if (!savedId) {
-            console.error("[audit] Report save returned null — check Supabase config and RLS policies");
+            console.error("[audit] Report save returned null. Check Supabase config and RLS policies.");
             // Prevent the client from surfacing a broken share link.
             results.id = undefined;
           }
@@ -431,13 +431,13 @@ export async function POST(request: NextRequest) {
 
           if (deductionFailed) {
             // Work was already paid for upstream (Apify, Claude). Don't burn
-            // it — return a generic error so the user can retry and we can
+            // return a generic error so the user can retry and we can
             // investigate from logs. The report row was saved above so an
             // operator can credit the user manually if needed.
             send({
               type: "error",
               message:
-                "Audit completed but billing failed. Please contact support — your usage will be reviewed.",
+                "Audit completed but billing failed. Please contact support. Your usage will be reviewed.",
             });
             return;
           }
@@ -453,7 +453,7 @@ export async function POST(request: NextRequest) {
         console.error("[audit] Stream failed:", error instanceof Error ? error.message : error);
         send({
           type: "error",
-          message: "Audit failed. Please retry — if the problem persists, contact support.",
+          message: "Audit failed. Please retry. If the problem persists, contact support.",
         });
       } finally {
         clearInterval(keepalive);

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, LogOut, Clock, FileText, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Clock, FileText, ArrowRight, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
@@ -36,13 +36,17 @@ function CompanySearch({ brand, index, onSelect }: {
   const [results, setResults] = useState<CompanyResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputId = `fb-search-${index}`;
+  const listboxId = `fb-listbox-${index}`;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
+        setActiveIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -51,6 +55,7 @@ function CompanySearch({ brand, index, onSelect }: {
 
   function handleSearch(value: string) {
     setQuery(value);
+    setActiveIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.length < 2) { setResults([]); setShowDropdown(false); return; }
 
@@ -69,37 +74,82 @@ function CompanySearch({ brand, index, onSelect }: {
     }, 400);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showDropdown || results.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      const company = results[activeIndex];
+      onSelect(index, company);
+      setQuery(company.name);
+      setShowDropdown(false);
+      setActiveIndex(-1);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+      setActiveIndex(-1);
+    }
+  }
+
+  function selectCompany(company: CompanyResult) {
+    onSelect(index, company);
+    setQuery(company.name);
+    setShowDropdown(false);
+    setActiveIndex(-1);
+  }
+
   return (
     <div ref={wrapperRef} className="relative">
-      <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
+      <label
+        htmlFor={inputId}
+        className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1"
+      >
         Facebook Page <span className="text-white-dim/50 normal-case">(optional)</span>
       </label>
       <div className="relative">
         <input
+          id={inputId}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showDropdown && results.length > 0}
+          aria-controls={listboxId}
+          aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => results.length > 0 && setShowDropdown(true)}
+          onKeyDown={handleKeyDown}
           placeholder="Search Facebook pages..."
           className="w-full bg-black-card border border-border-subtle text-white-full px-4 py-3 text-sm placeholder:text-white-dim/50 hover:border-border-strong focus:border-red-hot focus:bg-black-deep transition-all pr-8"
         />
-        {isSearching && <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-white-dim" />}
-        {!isSearching && brand.facebookPageId && <CheckCircle className="absolute right-3 top-3.5 h-4 w-4 text-orange-accent" />}
-        {!isSearching && !brand.facebookPageId && query.length >= 2 && <Search className="absolute right-3 top-3.5 h-4 w-4 text-white-dim" />}
+        {isSearching && <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-white-dim" aria-hidden="true" />}
+        {!isSearching && brand.facebookPageId && <CheckCircle className="absolute right-3 top-3.5 h-4 w-4 text-orange-accent" aria-hidden="true" />}
+        {!isSearching && !brand.facebookPageId && query.length >= 2 && <Search className="absolute right-3 top-3.5 h-4 w-4 text-white-dim" aria-hidden="true" />}
       </div>
 
       {showDropdown && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-black-deep border-2 border-red-hot max-h-60 overflow-auto">
-          {results.map((company) => (
-            <button
+        <ul
+          id={listboxId}
+          role="listbox"
+          aria-label="Facebook page suggestions"
+          className="absolute z-50 w-full mt-1 bg-black-deep border-2 border-red-hot max-h-60 overflow-auto list-none"
+        >
+          {results.map((company, i) => (
+            <li
               key={company.page_id}
-              type="button"
-              onClick={() => {
-                onSelect(index, company);
-                setQuery(company.name);
-                setShowDropdown(false);
+              id={`${listboxId}-option-${i}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              className={`w-full px-4 py-3 text-left transition-colors border-b border-border-subtle last:border-0 flex items-center gap-3 cursor-pointer ${i === activeIndex ? "bg-black-card" : "hover:bg-black-card"}`}
+              onMouseDown={(e) => {
+                // Prevent blur on the input before click registers
+                e.preventDefault();
+                selectCompany(company);
               }}
-              className="w-full px-4 py-3 text-left hover:bg-black-card transition-colors border-b border-border-subtle last:border-0 flex items-center gap-3"
             >
               {company.image_uri && (
                 <img src={company.image_uri} alt="" className="w-8 h-8 object-cover border border-border-subtle" />
@@ -110,9 +160,9 @@ function CompanySearch({ brand, index, onSelect }: {
                   {company.category} {company.likes > 0 && `· ${(company.likes / 1000).toFixed(0)}K likes`}
                 </p>
               </div>
-            </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
@@ -139,7 +189,11 @@ function DashboardContent() {
   const [progressDetail, setProgressDetail] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsPage, setReportsPage] = useState(1);
   const [reportsLoading, setReportsLoading] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
@@ -158,17 +212,49 @@ function DashboardContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserEmail(user.email ?? null);
 
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setPastReports(data);
-        }
-      } catch { /* non-critical */ }
-      setReportsLoading(false);
+      await loadReports(1);
     }
     loadUserData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadReports(page: number) {
+    setReportsLoading(true);
+    try {
+      const res = await fetch(`/api/reports?page=${page}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Support both old array format and new paginated format
+        if (Array.isArray(data)) {
+          setPastReports(data);
+          setReportsTotal(data.length);
+        } else {
+          setPastReports(data.reports ?? []);
+          setReportsTotal(data.total ?? 0);
+        }
+        setReportsPage(page);
+      }
+    } catch { /* non-critical */ }
+    setReportsLoading(false);
+  }
+
+  async function deleteReport(id: string) {
+    try {
+      const res = await fetch("/api/reports", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        toast.success("Report deleted");
+        await loadReports(reportsPage);
+      } else {
+        toast.error("Failed to delete report");
+      }
+    } catch {
+      toast.error("Failed to delete report");
+    }
+  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -226,16 +312,24 @@ function DashboardContent() {
     setProgress(0);
     setCurrentStep("Initializing audit...");
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       const response = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brands: validBrands }),
+        signal: abortController.signal,
       });
 
       if (response.status === 402) {
         const errData = await response.json().catch(() => null);
-        const msg = errData?.message || "Insufficient tokens. Top up your balance.";
+        let msg = "Insufficient tokens. Top up your balance.";
+        if (errData?.tokenCost != null && errData?.balance != null) {
+          const topUp = errData.tokenCost - errData.balance;
+          msg = `Need ${errData.tokenCost}, have ${errData.balance}. Top up ${topUp} token${topUp !== 1 ? "s" : ""} to continue.`;
+        }
         toast.error(msg);
         setIsAnalyzing(false);
         return;
@@ -279,9 +373,18 @@ function DashboardContent() {
         }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Audit failed");
+      if (error instanceof Error && error.name === "AbortError") {
+        toast.info("Audit cancelled. Tokens not charged.");
+      } else {
+        toast.error(error instanceof Error ? error.message : "Audit failed");
+      }
       setIsAnalyzing(false);
+      abortControllerRef.current = null;
     }
+  }
+
+  function cancelAudit() {
+    abortControllerRef.current?.abort();
   }
 
   return (
@@ -347,10 +450,14 @@ function DashboardContent() {
                     <div className="flex-1 space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
+                          <label
+                            htmlFor={`brand-name-${i}`}
+                            className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1"
+                          >
                             Brand Name
                           </label>
                           <input
+                            id={`brand-name-${i}`}
                             type="text"
                             value={brand.name}
                             onChange={(e) => updateBrand(i, "name", e.target.value)}
@@ -359,10 +466,14 @@ function DashboardContent() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1">
+                          <label
+                            htmlFor={`brand-website-${i}`}
+                            className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1"
+                          >
                             Website
                           </label>
                           <input
+                            id={`brand-website-${i}`}
                             type="url"
                             value={brand.website}
                             onChange={(e) => updateBrand(i, "website", e.target.value)}
@@ -424,14 +535,19 @@ function DashboardContent() {
               <h3 className="text-xl font-bold text-red-hot uppercase mb-6">
                 Analyzing Brand DNA
               </h3>
-              <div className="mb-6">
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label={`Audit progress: ${Math.round(progress)}%. ${currentStep}`}
+                className="mb-6"
+              >
                 <div className="flex justify-between text-xs text-white-dim uppercase tracking-wide mb-2">
                   <span>{currentStep}</span>
                   <span className="tabular-nums font-geist-mono">{Math.round(progress)}%</span>
                 </div>
                 <div className="h-2 bg-black-card border border-border-subtle">
                   <div
-                    className="h-full bg-red-hot transition-all duration-500"
+                    className="h-full bg-red-hot motion-safe:transition-all motion-safe:duration-500"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -440,10 +556,19 @@ function DashboardContent() {
                 )}
               </div>
               <div className="flex items-center gap-2 justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-red-hot" />
+                <Loader2 className="h-5 w-5 animate-spin text-red-hot" aria-hidden="true" />
                 <span className="text-sm text-white-muted">
                   {progress < 75 ? "Collecting intelligence..." : "Generating strategic analysis..."}
                 </span>
+              </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={cancelAudit}
+                  className="flex items-center gap-2 text-white-dim hover:text-red-hot text-xs font-bold uppercase tracking-wide transition-colors border border-border-subtle px-4 py-2 hover:border-red-hot"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel Audit
+                </button>
               </div>
             </div>
           </div>
@@ -456,51 +581,90 @@ function DashboardContent() {
               Past Reports
             </h3>
             <span className="text-xs text-white-dim font-geist-mono">
-              {pastReports.length} report{pastReports.length !== 1 ? "s" : ""}
+              {reportsTotal} report{reportsTotal !== 1 ? "s" : ""}
             </span>
           </div>
 
           {reportsLoading ? (
             <div className="bg-black-deep border-2 border-border-subtle p-8 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-white-dim" />
+              <Loader2 className="h-5 w-5 animate-spin text-white-dim" aria-hidden="true" />
             </div>
           ) : pastReports.length === 0 ? (
             <div className="bg-black-deep border-2 border-border-subtle p-8 text-center">
               <p className="text-sm text-white-dim">No reports yet. Run your first audit above.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {pastReports.map((report) => (
-                <Link
-                  key={report.id}
-                  href={`/report/${report.id}`}
-                  className="flex items-center justify-between bg-black-deep border-2 border-border-subtle p-4 hover:border-red-hot transition-all group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white-full group-hover:text-red-hot transition-colors truncate">
-                      {report.brands.join(" vs ")}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[10px] text-white-dim font-geist-mono flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(report.created_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span className="text-[10px] text-white-dim font-geist-mono">
-                        {Math.round(report.duration / 1000)}s
-                      </span>
-                      <span className="text-[10px] text-orange-accent font-geist-mono">
-                        {report.brands.length} brands
-                      </span>
-                    </div>
+            <>
+              <div className="space-y-2">
+                {pastReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex items-center gap-2 bg-black-deep border-2 border-border-subtle hover:border-red-hot transition-all group"
+                  >
+                    <Link
+                      href={`/report/${report.id}`}
+                      className="flex-1 flex items-center justify-between p-4 min-w-0"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white-full group-hover:text-red-hot transition-colors truncate">
+                          {report.brands.join(" vs ")}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] text-white-dim font-geist-mono flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(report.created_at).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className="text-[10px] text-white-dim font-geist-mono">
+                            {Math.round(report.duration / 1000)}s
+                          </span>
+                          <span className="text-[10px] text-orange-accent font-geist-mono">
+                            {report.brands.length} brands
+                          </span>
+                        </div>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0 mr-2" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this report? This cannot be undone.")) {
+                          deleteReport(report.id);
+                        }
+                      }}
+                      aria-label={`Delete report: ${report.brands.join(" vs ")}`}
+                      className="flex-shrink-0 p-4 text-white-dim hover:text-red-hot transition-colors border-l border-border-subtle"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0" />
-                </Link>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {reportsTotal > PAGE_SIZE && (
+                <div className="flex items-center justify-between mt-4">
+                  <button
+                    onClick={() => loadReports(reportsPage - 1)}
+                    disabled={reportsPage <= 1}
+                    className="text-xs font-bold uppercase tracking-wide text-white-dim hover:text-red-hot disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-white-dim font-geist-mono">
+                    Page {reportsPage} of {Math.ceil(reportsTotal / PAGE_SIZE)}
+                  </span>
+                  <button
+                    onClick={() => loadReports(reportsPage + 1)}
+                    disabled={reportsPage >= Math.ceil(reportsTotal / PAGE_SIZE)}
+                    className="text-xs font-bold uppercase tracking-wide text-white-dim hover:text-red-hot disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

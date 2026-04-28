@@ -38,14 +38,14 @@ export async function gatherBrandIntel(brandName: string, website: string): Prom
           role: "user",
           content: `Research the brand "${brandName}" (website: ${website}). Search for:
 
-1. PRESS RELEASES — official announcements, product launches, partnerships
-2. PRESS COVERAGE — news articles, media mentions, interviews, reviews
-3. BRAND ACTIVATIONS — events, sponsorships, experiential marketing, pop-ups, collaborations
-4. BRAND DOCUMENTS — brand guidelines, annual reports, investor presentations, public strategy docs
-5. SOCIAL PRESENCE — official accounts on Instagram, TikTok, X/Twitter, YouTube, LinkedIn
-6. RECENT CAMPAIGNS — advertising campaigns, marketing initiatives, creative work from the last 12 months
+1. PRESS RELEASES: official announcements, product launches, partnerships
+2. PRESS COVERAGE: news articles, media mentions, interviews, reviews
+3. BRAND ACTIVATIONS: events, sponsorships, experiential marketing, pop-ups, collaborations
+4. BRAND DOCUMENTS: brand guidelines, annual reports, investor presentations, public strategy docs
+5. SOCIAL PRESENCE: official accounts on Instagram, TikTok, X/Twitter, YouTube, LinkedIn
+6. RECENT CAMPAIGNS: advertising campaigns, marketing initiatives, creative work from the last 12 months
 
-Search thoroughly — try multiple queries to cover different angles.
+Search thoroughly. Try multiple queries to cover different angles.
 
 Respond with ONLY a valid JSON object (no markdown, no explanation):
 {
@@ -60,7 +60,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation):
 
 Include ONLY items you actually found with real URLs. Do not fabricate entries. If a category has no results, use an empty array.
 
-Your final message MUST be the JSON object only — no preamble, no explanation, no markdown fences. Start your final message with the character "{" and end it with "}".`,
+Your final message MUST be the JSON object only. No preamble, no explanation, no markdown fences. Start your final message with the character "{" and end it with "}".`,
         },
         {
           role: "assistant",

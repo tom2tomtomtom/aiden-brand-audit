@@ -12,7 +12,7 @@ export const maxDuration = 60;
 const MAX_BODY_BYTES = 512 * 1024; // 512KB
 
 export async function POST(request: NextRequest) {
-  // Require auth — this endpoint takes arbitrary JSON and burns up to 60s of
+  // Require auth. This endpoint takes arbitrary JSON and burns up to 60s of
   // CPU per call. No business case for anonymous access.
   const auth = await requireAuth();
   if (!auth.success) return auth.response;

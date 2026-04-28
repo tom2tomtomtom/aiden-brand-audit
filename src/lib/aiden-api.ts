@@ -185,7 +185,7 @@ export async function analyzeWithAiden(brandsData: BrandAnalysisInput[]): Promis
       console.warn("[aiden] AIDEN failed, falling back to Claude:", e instanceof Error ? e.message : e);
     }
   } else {
-    console.log("[aiden] No AIDEN API key — using Claude directly");
+    console.log("[aiden] No AIDEN API key. Using Claude directly.");
   }
 
   console.log("[aiden] Starting Claude fallback analysis...");
