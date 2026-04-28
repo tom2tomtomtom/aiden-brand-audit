@@ -63,6 +63,14 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-black-ink">
+      {!results.id && (
+        <div
+          role="alert"
+          className="w-full bg-black-card border-b-2 border-orange-accent px-4 py-2 text-center text-xs text-orange-accent font-bold uppercase tracking-wide"
+        >
+          Audit could not be saved. Re-run to retain history.
+        </div>
+      )}
       <header className="border-b-2 border-red-hot bg-black-deep sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">

@@ -285,7 +285,11 @@ function DashboardContent() {
 
       if (response.status === 402) {
         const errData = await response.json().catch(() => null);
-        const msg = errData?.message || "Insufficient tokens. Top up your balance.";
+        let msg = "Insufficient tokens. Top up your balance.";
+        if (errData?.tokenCost != null && errData?.balance != null) {
+          const topUp = errData.tokenCost - errData.balance;
+          msg = `Need ${errData.tokenCost}, have ${errData.balance}. Top up ${topUp} token${topUp !== 1 ? "s" : ""} to continue.`;
+        }
         toast.error(msg);
         setIsAnalyzing(false);
         return;
