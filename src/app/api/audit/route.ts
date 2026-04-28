@@ -56,7 +56,15 @@ export async function POST(request: NextRequest) {
   }
   const { brands } = parsed.data;
 
-  // Gateway token check: per_brand = 9 tokens, strategic_analysis = 4 tokens.
+  // Gateway token costs — MUST stay in sync with aiden-gateway/lib/tokens.ts
+  // (TOKEN_COSTS.brand_audit). The Gateway is the authoritative billing
+  // path; these constants only drive the pre-flight balance check below
+  // and the `Insufficient tokens` error message. Drift here causes the
+  // pre-flight to under- or over-quote and lets a user with too few
+  // tokens slip past the check, then fail mid-pipeline (BA-G-1).
+  const COST_PER_BRAND = 40;
+  const COST_STRATEGIC_ANALYSIS = 20;
+
   // In production we MUST fail closed when the Gateway service key is missing —
   // otherwise we'd run a full multi-brand audit (Apify scraping, Claude analysis,
   // logo discovery) with no billing path.
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
     );
   }
   if (hasTokenService) {
-    const totalGatewayCost = (brands.length * 9) + 4;
+    const totalGatewayCost = (brands.length * COST_PER_BRAND) + COST_STRATEGIC_ANALYSIS;
     const checkResult = await checkTokens(auth.user.id, 'brand_audit', 'per_brand');
     if (checkResult.balance < totalGatewayCost) {
       return new Response(
@@ -394,14 +402,48 @@ export async function POST(request: NextRequest) {
           results.id = undefined;
         }
 
-        send({ type: "complete", results });
-
+        // BA-G-2: Deduct BEFORE emitting `complete`. Previously the client
+        // received and rendered results before the deduction loop ran, which
+        // turned every Gateway hiccup or 402 into a free-results regression.
+        // We deduct first; only if every deduction succeeds does the client
+        // see the full result payload.
         if (hasTokenService) {
+          let deductionFailed = false;
           for (let i = 0; i < brands.length; i++) {
-            await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+            const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+            if (!r.success) {
+              console.error(
+                `[audit] Per-brand deduction failed for user ${auth.user.id} (brand ${i + 1}/${brands.length}): ${r.error || 'unknown'}`,
+              );
+              deductionFailed = true;
+              break;
+            }
           }
-          await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+          if (!deductionFailed) {
+            const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+            if (!r.success) {
+              console.error(
+                `[audit] Strategic-analysis deduction failed for user ${auth.user.id}: ${r.error || 'unknown'}`,
+              );
+              deductionFailed = true;
+            }
+          }
+
+          if (deductionFailed) {
+            // Work was already paid for upstream (Apify, Claude). Don't burn
+            // it — return a generic error so the user can retry and we can
+            // investigate from logs. The report row was saved above so an
+            // operator can credit the user manually if needed.
+            send({
+              type: "error",
+              message:
+                "Audit completed but billing failed. Please contact support — your usage will be reviewed.",
+            });
+            return;
+          }
         }
+
+        send({ type: "complete", results });
       } catch (error) {
         // Never echo raw error text to the client. Postgres/Supabase
         // errors here can reveal table names, column names, RLS
