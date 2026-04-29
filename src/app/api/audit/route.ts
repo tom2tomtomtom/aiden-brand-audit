@@ -112,12 +112,14 @@ export async function POST(request: NextRequest) {
 
         for (let i = 0; i < totalBrands; i++) {
           const brand = brands[i];
-          const brandProgress = (i / totalBrands) * 75;
+          const brandSlice = 75 / totalBrands;
+          const brandProgress = i * brandSlice;
+          const bp = (frac: number) => Math.min(brandProgress + frac * brandSlice, 75);
 
           send({
             type: "progress",
             step: `Discovering logos for ${brand.name}`,
-            progress: brandProgress + 5,
+            progress: bp(0.08),
             detail: `Scanning ${brand.website}`,
           });
 
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
                 send({
                   type: "progress",
                   step: `Identified ${brand.name}`,
-                  progress: brandProgress + 12,
+                  progress: bp(0.2),
                   detail: `Matched Facebook page from ${brand.website}`,
                 });
               }
@@ -151,7 +153,7 @@ export async function POST(request: NextRequest) {
           send({
             type: "progress",
             step: `Scraping Facebook ads for ${brand.name}`,
-            progress: brandProgress + 15,
+            progress: bp(0.25),
             detail: "Querying Facebook Ad Library",
           });
 
@@ -167,7 +169,7 @@ export async function POST(request: NextRequest) {
           send({
             type: "progress",
             step: `Extracting color DNA for ${brand.name}`,
-            progress: brandProgress + 30,
+            progress: bp(0.4),
             detail: "Analyzing logo and ad creative palettes",
           });
 
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
           send({
             type: "progress",
             step: `Researching ${brand.name} PR, press & activations`,
-            progress: brandProgress + 40,
+            progress: bp(0.55),
             detail: "Claude web search scanning public brand intelligence",
           });
 
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
           send({
             type: "progress",
             step: `Scraping social conversations for ${brand.name}`,
-            progress: brandProgress + 50,
+            progress: bp(0.7),
             detail: "TikTok, Instagram & Reddit organic posts",
           });
 
@@ -237,7 +239,7 @@ export async function POST(request: NextRequest) {
             send({
               type: "progress",
               step: `Analyzing sentiment for ${brand.name}`,
-              progress: brandProgress + 55,
+              progress: bp(0.8),
               detail: `${allPosts.length} posts collected. Claude analyzing public perception.`,
             });
 
@@ -270,7 +272,7 @@ export async function POST(request: NextRequest) {
           send({
             type: "progress",
             step: `Compiled ${brand.name} intelligence`,
-            progress: brandProgress + 60,
+            progress: bp(1.0),
             detail: `${ads.length} ads, ${intelCount} press items, ${socialCount} social posts (sentiment: ${sentimentLabel})`,
           });
 

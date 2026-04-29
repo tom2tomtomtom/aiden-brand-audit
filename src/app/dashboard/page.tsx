@@ -354,7 +354,7 @@ function DashboardContent() {
           try {
             const event: ProgressEvent = JSON.parse(line.slice(6));
             if (event.type === "progress") {
-              setProgress(event.progress);
+              setProgress(Math.min(event.progress, 100));
               setCurrentStep(event.step);
               setProgressDetail(event.detail || "");
             } else if (event.type === "complete") {
@@ -538,17 +538,17 @@ function DashboardContent() {
               <div
                 role="status"
                 aria-live="polite"
-                aria-label={`Audit progress: ${Math.round(progress)}%. ${currentStep}`}
+                aria-label={`Audit progress: ${Math.min(Math.round(progress), 100)}%. ${currentStep}`}
                 className="mb-6"
               >
                 <div className="flex justify-between text-xs text-white-dim uppercase tracking-wide mb-2">
                   <span>{currentStep}</span>
-                  <span className="tabular-nums font-geist-mono">{Math.round(progress)}%</span>
+                  <span className="tabular-nums font-geist-mono">{Math.min(Math.round(progress), 100)}%</span>
                 </div>
-                <div className="h-2 bg-black-card border border-border-subtle">
+                <div className="h-2 bg-black-card border border-border-subtle overflow-hidden">
                   <div
                     className="h-full bg-red-hot motion-safe:transition-all motion-safe:duration-500"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
                   />
                 </div>
                 {progressDetail && (
