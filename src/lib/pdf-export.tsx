@@ -157,7 +157,7 @@ export function BrandDNAReport({ results }: { results: AuditResults }) {
         <View style={styles.header}>
           <Text style={styles.title}>Brand DNA Report</Text>
           <Text style={styles.subtitle}>
-            {brandNames} // {new Date(results.createdAt).toLocaleDateString()}
+            {`${brandNames} // ${new Date(results.createdAt).toLocaleDateString()}`}
           </Text>
         </View>
 

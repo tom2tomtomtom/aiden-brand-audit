@@ -12,7 +12,10 @@ export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    // Initialise from current state (handles hard reload while offline)
+    // Initialise from current state (handles hard reload while offline).
+    // navigator.onLine is not available during SSR, so we can't pass it to useState.
+    // This single synchronous setState on mount does not cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe initialisation; navigator.onLine unavailable at render time
     setIsOffline(!navigator.onLine);
 
     function handleOffline() { setIsOffline(true); }
