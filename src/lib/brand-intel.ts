@@ -22,10 +22,9 @@ export async function gatherBrandIntel(brandName: string, website: string): Prom
 
   try {
     console.log(`[brand-intel] Researching ${brandName} via Claude web search...`);
-    const response = await client.beta.messages.create({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
-      betas: ["web-search-2025-03-05"],
       tools: [
         {
           type: "web_search_20250305" as const,
@@ -60,11 +59,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation):
 
 Include ONLY items you actually found with real URLs. Do not fabricate entries. If a category has no results, use an empty array.
 
-Your final message MUST be the JSON object only. No preamble, no explanation, no markdown fences. Start your final message with the character "{" and end it with "}".`,
-        },
-        {
-          role: "assistant",
-          content: "{",
+Your final message MUST be the JSON object only. No preamble, no explanation, no markdown fences.`,
         },
       ],
     });
@@ -76,10 +71,7 @@ Your final message MUST be the JSON object only. No preamble, no explanation, no
     const rawText = textBlocks
       .map((b) => ("text" in b ? (b as { text: string }).text : ""))
       .join("");
-    // Prefilled assistant message starts with "{"; web-search responses
-    // strip the prefill from `response.content`, so re-prepend it before
-    // extracting JSON.
-    const fullText = rawText.trimStart().startsWith("{") ? rawText : `{${rawText}`;
+    const fullText = rawText.trim();
     console.log(`[brand-intel] Got ${fullText.length} chars response for ${brandName}`);
 
     const citations: { url: string; title: string }[] = [];

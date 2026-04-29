@@ -15,6 +15,7 @@ import { AdAnalytics } from "@/components/report/AdAnalytics";
 import { BrandIntel } from "@/components/report/BrandIntel";
 import { StrategicAnalysis } from "@/components/report/StrategicAnalysis";
 import { CompetitiveMatrix } from "@/components/report/CompetitiveMatrix";
+import { SocialSentiment } from "@/components/report/SocialSentiment";
 
 export default function SharedReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -81,6 +82,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
     { id: "ads", label: "Ad Intelligence" },
     { id: "analytics", label: "Analytics" },
     { id: "intel", label: "Brand Intel" },
+    { id: "social", label: "Social Pulse" },
     { id: "strategy", label: "Strategic Analysis" },
     { id: "matrix", label: "Competitive Matrix" },
   ];
@@ -154,6 +156,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
           {activeSection === "ads" && <AdGallery brands={results.brands} />}
           {activeSection === "analytics" && <AdAnalytics brands={results.brands} />}
           {activeSection === "intel" && <BrandIntel brands={results.brands} />}
+          {activeSection === "social" && <SocialSentiment brands={results.brands} />}
           {activeSection === "strategy" && (
             <StrategicAnalysis analysis={results.strategicAnalysis} brands={results.brands} />
           )}
