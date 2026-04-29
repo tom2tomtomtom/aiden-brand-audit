@@ -34,9 +34,17 @@ function extractJsonSubstring(text: string): string | null {
 }
 
 function extractRawJson(text: string): string {
-  const extracted = extractJsonSubstring(text);
+  // Strip a leading prose + opening fence and any trailing fence first. This
+  // keeps backtick characters out of the fallback path: when the brace-depth
+  // scan fails (truncated response, mid-string), we still hand a fence-free
+  // string to closeTruncatedJson rather than text starting with "```json".
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '');
+  cleaned = cleaned.replace(/\n?\s*```\s*$/i, '');
+
+  const extracted = extractJsonSubstring(cleaned);
   if (extracted) return extracted.trim();
-  return text.trim();
+  return cleaned.trim();
 }
 
 function repairJson(json: string): string {
