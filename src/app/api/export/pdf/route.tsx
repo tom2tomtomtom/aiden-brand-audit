@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // eslint-disable-next-line react-hooks/error-boundaries -- react-pdf's renderToBuffer renders to a PDF buffer, not the React DOM; errors here are safe to catch
     const buffer = await renderToBuffer(<BrandDNAReport results={results} />);
 
     const brandNames = results.brands.map((b) => b.name.toLowerCase().replace(/\s+/g, "-")).join("-vs-");
