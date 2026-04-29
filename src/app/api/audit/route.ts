@@ -93,15 +93,35 @@ export async function POST(request: NextRequest) {
   }
 
   const encoder = new TextEncoder();
+  // `closed` is shared between start() and cancel() so a client disconnect
+  // (which fires cancel() and closes the controller from the runtime side)
+  // doesn't leave timers and late awaits trying to enqueue into a dead
+  // controller. That was the source of the runaway uncaughtException loop:
+  // `Invalid state: Controller is already closed` from the keepalive interval.
+  let closed = false;
   const stream = new ReadableStream({
     async start(controller) {
+      function safeEnqueue(chunk: Uint8Array) {
+        if (closed) return;
+        try {
+          controller.enqueue(chunk);
+        } catch {
+          // Underlying stream already closed (client disconnect, abort, etc.)
+          closed = true;
+        }
+      }
+
       function send(event: ProgressEvent) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        safeEnqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       }
 
       // Keepalive to prevent proxy idle-connection drops (Railway 60s timeout)
       const keepalive = setInterval(() => {
-        controller.enqueue(encoder.encode(": keepalive\n\n"));
+        if (closed) {
+          clearInterval(keepalive);
+          return;
+        }
+        safeEnqueue(encoder.encode(": keepalive\n\n"));
       }, 15_000);
 
       const startTime = Date.now();
@@ -298,6 +318,10 @@ export async function POST(request: NextRequest) {
         });
 
         const aidenTicker = setInterval(() => {
+          if (closed) {
+            clearInterval(aidenTicker);
+            return;
+          }
           send({
             type: "progress",
             step: "Analyzing competitive landscape",
@@ -459,8 +483,20 @@ export async function POST(request: NextRequest) {
         });
       } finally {
         clearInterval(keepalive);
-        controller.close();
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the runtime (e.g. client disconnect).
+          }
+        }
       }
+    },
+    cancel() {
+      // Client disconnected before stream finished. Stop further enqueues
+      // from any in-flight async work or the keepalive ticker.
+      closed = true;
     },
   });
 

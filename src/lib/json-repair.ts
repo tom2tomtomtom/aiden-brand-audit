@@ -10,21 +10,25 @@ export function extractAndRepairJson(text: string): string {
 }
 
 function extractJsonSubstring(text: string): string | null {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  const candidate = fenceMatch ? fenceMatch[1] : text;
-  const startIdx = candidate.search(/[\{\[]/);
+  // Don't pre-extract via fence regex. A non-greedy fence match gets fooled when
+  // the JSON itself contains backticks (e.g. ad copy with code spans), matching
+  // the first ``` it finds inside a string and truncating mid-value. The
+  // brace-depth scan below already tracks string state, so it correctly skips
+  // any leading ```json prelude (which sits before the first '{') and handles
+  // backticks inside string values without confusion.
+  const startIdx = text.search(/[\{\[]/);
   if (startIdx === -1) return null;
-  const open = candidate[startIdx];
+  const open = text[startIdx];
   const close = open === '{' ? '}' : ']';
   let depth = 0, inStr = false, esc = false;
-  for (let i = startIdx; i < candidate.length; i++) {
-    const c = candidate[i];
+  for (let i = startIdx; i < text.length; i++) {
+    const c = text[i];
     if (esc) { esc = false; continue; }
     if (c === '\\') { esc = true; continue; }
     if (c === '"') { inStr = !inStr; continue; }
     if (inStr) continue;
     if (c === open) depth++;
-    else if (c === close) { depth--; if (depth === 0) return candidate.slice(startIdx, i + 1); }
+    else if (c === close) { depth--; if (depth === 0) return text.slice(startIdx, i + 1); }
   }
   return null;
 }
