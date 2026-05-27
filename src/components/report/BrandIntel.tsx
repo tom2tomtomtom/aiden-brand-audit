@@ -4,6 +4,10 @@ import { useState } from "react";
 import type { BrandData } from "@/lib/types";
 import { Newspaper, Megaphone, FileText, Globe, Rocket, ExternalLink, Quote } from "lucide-react";
 
+function asArray<T>(value: T[] | undefined | null): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function IntelCard({ title, icon: Icon, children, count }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -69,7 +73,13 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
 
   const hasAnyIntel = brands.some((b) => {
     const i = b.intel;
-    return i.pressReleases.length + i.pressCoverage.length + i.activations.length + i.recentCampaigns.length + i.brandDocuments.length + i.socialPresence.length > 0;
+    if (!i) return false;
+    return asArray(i.pressReleases).length
+      + asArray(i.pressCoverage).length
+      + asArray(i.activations).length
+      + asArray(i.recentCampaigns).length
+      + asArray(i.brandDocuments).length
+      + asArray(i.socialPresence).length > 0;
   });
 
   if (!hasAnyIntel) {
@@ -112,6 +122,15 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
 
       {filteredBrands.map((brand) => {
         const intel = brand.intel;
+        if (!intel) return null;
+        const pressCoverage = asArray(intel.pressCoverage);
+        const pressReleases = asArray(intel.pressReleases);
+        const activations = asArray(intel.activations);
+        const recentCampaigns = asArray(intel.recentCampaigns);
+        const brandDocuments = asArray(intel.brandDocuments);
+        const socialPresence = asArray(intel.socialPresence);
+        const citations = asArray(intel.citations);
+
         return (
           <div key={brand.name} className="space-y-4">
             <div className="flex items-center gap-3 pb-2 border-b-2 border-red-hot">
@@ -119,52 +138,52 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
                 {brand.name}
               </h3>
               <span className="text-xs text-white-dim font-geist-mono">
-                {intel.pressCoverage.length + intel.pressReleases.length} press items · {intel.activations.length} activations · {intel.recentCampaigns.length} campaigns
+                {pressCoverage.length + pressReleases.length} press items · {activations.length} activations · {recentCampaigns.length} campaigns
               </span>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <IntelCard title="Press Coverage" icon={Newspaper} count={intel.pressCoverage.length}>
+              <IntelCard title="Press Coverage" icon={Newspaper} count={pressCoverage.length}>
                 <div className="max-h-80 overflow-y-auto">
-                  {intel.pressCoverage.map((item, i) => (
+                  {pressCoverage.map((item, i) => (
                     <LinkItem key={i} title={item.title} source={item.source} url={item.url} date={item.date} summary={item.summary} />
                   ))}
                 </div>
               </IntelCard>
 
-              <IntelCard title="Press Releases" icon={Quote} count={intel.pressReleases.length}>
+              <IntelCard title="Press Releases" icon={Quote} count={pressReleases.length}>
                 <div className="max-h-80 overflow-y-auto">
-                  {intel.pressReleases.map((item, i) => (
+                  {pressReleases.map((item, i) => (
                     <LinkItem key={i} title={item.title} source={item.source} url={item.url} date={item.date} summary={item.summary} />
                   ))}
                 </div>
               </IntelCard>
 
-              <IntelCard title="Brand Activations" icon={Megaphone} count={intel.activations.length}>
+              <IntelCard title="Brand Activations" icon={Megaphone} count={activations.length}>
                 <div className="max-h-80 overflow-y-auto">
-                  {intel.activations.map((item, i) => (
+                  {activations.map((item, i) => (
                     <LinkItem key={i} title={item.title} url={item.url} date={item.date} summary={item.description} />
                   ))}
                 </div>
               </IntelCard>
 
-              <IntelCard title="Recent Campaigns" icon={Rocket} count={intel.recentCampaigns.length}>
+              <IntelCard title="Recent Campaigns" icon={Rocket} count={recentCampaigns.length}>
                 <div className="max-h-80 overflow-y-auto">
-                  {intel.recentCampaigns.map((item, i) => (
+                  {recentCampaigns.map((item, i) => (
                     <LinkItem key={i} title={item.name} url={item.url} date={item.date} summary={item.description} />
                   ))}
                 </div>
               </IntelCard>
 
-              <IntelCard title="Brand Documents" icon={FileText} count={intel.brandDocuments.length}>
+              <IntelCard title="Brand Documents" icon={FileText} count={brandDocuments.length}>
                 <div className="max-h-80 overflow-y-auto">
-                  {intel.brandDocuments.map((item, i) => (
+                  {brandDocuments.map((item, i) => (
                     <LinkItem key={i} title={item.title} source={item.type} url={item.url} summary={item.summary} />
                   ))}
                 </div>
               </IntelCard>
 
-              {intel.socialPresence.length > 0 && (
+              {socialPresence.length > 0 && (
                 <div className="bg-black-deep border-2 border-border-subtle p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Globe className="h-4 w-4 text-orange-accent" />
@@ -173,7 +192,7 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
                     </h4>
                   </div>
                   <div className="space-y-2">
-                    {intel.socialPresence.map((social, i) => (
+                    {socialPresence.map((social, i) => (
                       <a
                         key={i}
                         href={social.url}
@@ -195,13 +214,13 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
               )}
             </div>
 
-            {intel.citations.length > 0 && (
+            {citations.length > 0 && (
               <details className="mt-2">
                 <summary className="text-[10px] text-white-dim uppercase tracking-wide cursor-pointer hover:text-white-muted">
-                  {intel.citations.length} sources cited
+                  {citations.length} sources cited
                 </summary>
                 <div className="mt-2 space-y-1 pl-4">
-                  {intel.citations.slice(0, 20).map((cite, i) => (
+                  {citations.slice(0, 20).map((cite, i) => (
                     <a
                       key={i}
                       href={cite.url}
