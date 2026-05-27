@@ -44,6 +44,12 @@ function extractRawJson(text: string): string {
 
   const extracted = extractJsonSubstring(cleaned);
   if (extracted) return extracted.trim();
+
+  const objectStart = cleaned.indexOf('{');
+  const arrayStart = cleaned.indexOf('[');
+  if (objectStart !== -1) return cleaned.slice(objectStart).trim();
+  if (arrayStart !== -1) return cleaned.slice(arrayStart).trim();
+
   return cleaned.trim();
 }
 
@@ -71,8 +77,7 @@ function repairJson(json: string): string {
 }
 
 function closeTruncatedJson(json: string): string {
-  let openBraces = 0;
-  let openBrackets = 0;
+  const closers: string[] = [];
   let inString = false;
   let escape = false;
 
@@ -91,10 +96,13 @@ function closeTruncatedJson(json: string): string {
     }
     if (inString) continue;
 
-    if (ch === "{") openBraces++;
-    else if (ch === "}") openBraces--;
-    else if (ch === "[") openBrackets++;
-    else if (ch === "]") openBrackets--;
+    if (ch === "{") {
+      closers.push("}");
+    } else if (ch === "[") {
+      closers.push("]");
+    } else if ((ch === "}" || ch === "]") && closers[closers.length - 1] === ch) {
+      closers.pop();
+    }
   }
 
   // If we ended inside a string, close it
@@ -103,9 +111,8 @@ function closeTruncatedJson(json: string): string {
   // Remove any trailing comma
   json = json.replace(/,\s*$/, "");
 
-  // Close remaining open brackets/braces
-  for (let i = 0; i < openBrackets; i++) json += "]";
-  for (let i = 0; i < openBraces; i++) json += "}";
+  // Close remaining open brackets/braces in nesting order.
+  json += closers.reverse().join("");
 
   return json;
 }

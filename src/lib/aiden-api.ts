@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { extractAndRepairJson } from "./json-repair";
 
-const AIDEN_API_BASE = process.env.AIDEN_API_URL || "https://aiden-api-production.up.railway.app";
+const AIDEN_API_BASE = process.env.AIDEN_API_URL || "https://aiden-brain-api-v2-production.up.railway.app";
 const AIDEN_API_KEY = process.env.AIDEN_API_KEY || "";
 
 export interface BrandAnalysisInput {

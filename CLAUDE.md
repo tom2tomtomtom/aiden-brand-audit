@@ -94,7 +94,7 @@ Gateway endpoint: `POST /api/tokens/deduct` with `X-Service-Key` + `X-User-Id`.
 ## 9. Environment variables
 
 **Required:**
-- `AIDEN_API_URL` = `https://aiden-api-production.up.railway.app`
+- `AIDEN_API_URL` = `https://aiden-brain-api-v2-production.up.railway.app`
 - `AIDEN_API_KEY`
 - `AIDEN_SERVICE_KEY`
 - `SCRAPE_CREATORS_API_KEY`
@@ -153,4 +153,4 @@ No E2E tests. Playwright MCP configured (`.playwright-mcp/`) but unused.
 - `AGENTS.md`: Next.js version note
 - Vault: `~/Tom-Brain/AIDEN/AIDEN Hub.md`
 - Gateway: `https://www.aiden.services`
-- AIDEN API: `https://aiden-api-production.up.railway.app`
+- AIDEN Brain API: `https://aiden-brain-api-v2-production.up.railway.app`

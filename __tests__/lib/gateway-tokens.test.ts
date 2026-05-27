@@ -13,15 +13,18 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
     delete process.env.GATEWAY_URL
   })
 
-  it('throws when AIDEN_SERVICE_KEY is not set', async () => {
+  it('fails closed when AIDEN_SERVICE_KEY is not set', async () => {
     delete process.env.AIDEN_SERVICE_KEY
     const { checkTokens } = await import('../../src/lib/gateway-tokens')
 
     global.fetch = vi.fn()
 
-    await expect(checkTokens('user-1', 'brandaudit', 'audit')).rejects.toThrow(
-      'AIDEN_SERVICE_KEY is not configured'
-    )
+    await expect(checkTokens('user-1', 'brand_audit', 'per_brand')).resolves.toEqual({
+      allowed: false,
+      required: 0,
+      balance: 0,
+      gatewayUnavailable: true,
+    })
   })
 
   it('checkTokens POSTs to /api/tokens/check with correct body and headers', async () => {
@@ -36,7 +39,7 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
       json: async () => mockResponse,
     })
 
-    const result = await checkTokens('user-abc', 'brandaudit', 'full_audit')
+    const result = await checkTokens('user-abc', 'brand_audit', 'per_brand')
 
     expect(fetch).toHaveBeenCalledOnce()
     const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -45,7 +48,7 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
     expect(options.headers['X-Service-Key']).toBe('test-key-123')
     expect(options.headers['X-User-Id']).toBe('user-abc')
     expect(options.headers['Content-Type']).toBe('application/json')
-    expect(JSON.parse(options.body)).toEqual({ product: 'brandaudit', operation: 'full_audit' })
+    expect(JSON.parse(options.body)).toEqual({ product: 'brand_audit', operation: 'per_brand' })
     expect(result).toEqual(mockResponse)
   })
 
@@ -61,7 +64,7 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
       json: async () => mockResponse,
     })
 
-    const result = await deductTokens('user-xyz', 'brandaudit', 'full_audit')
+    const result = await deductTokens('user-xyz', 'brand_audit', 'strategic_analysis')
 
     expect(fetch).toHaveBeenCalledOnce()
     const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -69,19 +72,24 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
     expect(options.method).toBe('POST')
     expect(options.headers['X-Service-Key']).toBe('test-key-456')
     expect(options.headers['X-User-Id']).toBe('user-xyz')
-    expect(JSON.parse(options.body)).toEqual({ product: 'brandaudit', operation: 'full_audit' })
+    expect(JSON.parse(options.body)).toEqual({ product: 'brand_audit', operation: 'strategic_analysis' })
     expect(result).toEqual(mockResponse)
   })
 
-  it('checkTokens falls back gracefully on non-OK response', async () => {
+  it('checkTokens fails closed on non-OK response', async () => {
     process.env.AIDEN_SERVICE_KEY = 'test-key'
     vi.resetModules()
     const { checkTokens } = await import('../../src/lib/gateway-tokens')
 
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 })
 
-    const result = await checkTokens('user-1', 'brandaudit', 'audit')
-    expect(result).toEqual({ allowed: true, required: 0, balance: 0 })
+    const result = await checkTokens('user-1', 'brand_audit', 'per_brand')
+    expect(result).toEqual({
+      allowed: false,
+      required: 0,
+      balance: 0,
+      gatewayUnavailable: true,
+    })
   })
 
   it('deductTokens returns 402 payload on insufficient tokens', async () => {
@@ -96,7 +104,7 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
       json: async () => payload,
     })
 
-    const result = await deductTokens('user-1', 'brandaudit', 'audit')
+    const result = await deductTokens('user-1', 'brand_audit', 'per_brand')
     expect(result).toEqual(payload)
   })
 })

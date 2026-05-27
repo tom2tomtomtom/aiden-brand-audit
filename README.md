@@ -51,7 +51,7 @@ npm run dev
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `AIDEN_API_URL` | `https://aiden-api-production.up.railway.app` | AIDEN API base URL |
+| `AIDEN_API_URL` | `https://aiden-brain-api-v2-production.up.railway.app` | AIDEN Brain API base URL |
 | `STRIPE_SECRET_KEY` | (removed) | Stripe payments |
 | `STRIPE_WEBHOOK_SECRET` | (removed) | Stripe webhook verification |
 | `STRIPE_PRICE_ID_STARTER` | (removed) | Stripe price ID for Starter plan |
