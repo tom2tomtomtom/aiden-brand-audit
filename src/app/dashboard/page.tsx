@@ -5,11 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Clock, FileText, ArrowRight, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
-import { TokenBalanceBadge } from "@/components/layout/TokenBalanceBadge";
 import { estimateAuditCost } from "@/lib/tokens";
-import { AidenLogo } from "@/components/ui/aiden-logo";
 
 interface ReportSummary {
   id: string;
@@ -187,7 +184,6 @@ function DashboardContent() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
   const [progressDetail, setProgressDetail] = useState("");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
   const [reportsTotal, setReportsTotal] = useState(0);
   const [reportsPage, setReportsPage] = useState(1);
@@ -205,16 +201,7 @@ function DashboardContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    async function loadUserData() {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email ?? null);
-
-      await loadReports(1);
-    }
-    loadUserData();
+    loadReports(1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -254,12 +241,6 @@ function DashboardContent() {
     } catch {
       toast.error("Failed to delete report");
     }
-  }
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    if (supabase) await supabase.auth.signOut();
-    window.location.href = "https://www.aiden.services/auth/logout";
   }
 
   function addBrand() {
@@ -389,37 +370,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-black-ink">
-      <header className="border-b-2 border-red-hot bg-black-deep">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/dashboard" className="text-xl tracking-tight flex items-center gap-1">
-              <AidenLogo size="md" />
-              <span className="aiden-app-name text-white-dim">.Brand&nbsp;Audit</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <a
-                href="https://www.aiden.services/dashboard"
-                className="text-white-dim text-sm hover:text-red-hot transition-colors"
-              >
-                Back to Hub
-              </a>
-              <TokenBalanceBadge />
-              {userEmail && (
-                <span className="text-xs text-white-dim font-geist-mono hidden sm:inline">
-                  {userEmail}
-                </span>
-              )}
-              <button
-                onClick={handleSignOut}
-                className="text-white-dim text-sm hover:text-red-hot transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex flex-wrap justify-center gap-4 mb-12">
           {[

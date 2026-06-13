@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { SkipToContent } from "@/components/layout/SkipToContent";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
+import AppNav from "@/components/AppNav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AppNav appName=".Brand Audit" tagline="see your brand clearly" currentApp="Brand Audit" />
         <SkipToContent />
         <OfflineBanner />
         <main id="main-content">
