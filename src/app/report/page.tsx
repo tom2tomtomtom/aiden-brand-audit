@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
+import { normalizeAuditResults } from "@/lib/normalize";
 import { formatDuration } from "@/lib/utils";
 import { ExportPdfButton } from "@/components/report/ExportPdfButton";
 import { ExecutiveSummary } from "@/components/report/ExecutiveSummary";
@@ -33,7 +34,9 @@ export default function ReportPage() {
       if (!parsed || !Array.isArray(parsed.brands)) {
         throw new Error("Invalid audit payload");
       }
-      setResults(parsed);
+      // Older/partial reports may have an LLM analysis missing required fields;
+      // normalize so every tab and the PDF render instead of crashing.
+      setResults(normalizeAuditResults(parsed));
     } catch (err) {
       console.error("[report] Corrupt sessionStorage payload:", err);
       sessionStorage.removeItem("auditResults");

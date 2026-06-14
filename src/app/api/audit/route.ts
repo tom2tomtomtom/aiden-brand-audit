@@ -7,6 +7,7 @@ import { collectSocialPosts } from "@/lib/social-scraper";
 import { analyzeSentiment } from "@/lib/sentiment-analyzer";
 import { extractColors } from "@/lib/colors";
 import { analyzeWithAiden } from "@/lib/aiden-api";
+import { normalizeStrategicAnalysis } from "@/lib/normalize";
 import { gatherBrandIntel } from "@/lib/brand-intel";
 import { requireAuth } from "@/lib/auth";
 import { checkTokens, deductTokens as gatewayDeductTokens } from "@/lib/gateway-tokens";
@@ -379,7 +380,10 @@ export async function POST(request: NextRequest) {
 
           const analysisJson = await analyzeWithAiden(aidenInput);
           clearInterval(aidenTicker);
-          strategicAnalysis = JSON.parse(analysisJson);
+          // LLM output is not guaranteed to match the StrategicAnalysis shape:
+          // it can omit fields or truncate JSON, which crashes the report view
+          // and PDF export on `.length`/Object.entries. Force the full shape.
+          strategicAnalysis = normalizeStrategicAnalysis(JSON.parse(analysisJson));
         } catch (e: unknown) {
           clearInterval(aidenTicker);
           console.error("[audit] Strategic analysis failed:", e instanceof Error ? e.message : e);

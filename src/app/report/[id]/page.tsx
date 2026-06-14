@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
+import { normalizeAuditResults } from "@/lib/normalize";
 import { formatDuration } from "@/lib/utils";
 import { ExportPdfButton } from "@/components/report/ExportPdfButton";
 import { ExecutiveSummary } from "@/components/report/ExecutiveSummary";
@@ -34,7 +35,9 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
           return;
         }
         const data = await res.json();
-        setResults(data);
+        // Reports saved before the analysis was schema-guaranteed can be missing
+        // required fields; normalize so every tab and the PDF render.
+        setResults(normalizeAuditResults(data));
       } catch {
         setError("Failed to load report");
       } finally {
