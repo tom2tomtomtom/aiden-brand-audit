@@ -452,6 +452,12 @@ function DashboardContent() {
                 ))}
               </div>
 
+              {brands.filter(b => b.name.trim()).length < 2 && (
+                <p className="mt-4 text-[10px] text-white-dim font-geist-mono uppercase tracking-wide">
+                  Brand Audit compares brands against each other — add at least 2 to run an audit.
+                </p>
+              )}
+
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-border-subtle">
                 <button
                   onClick={addBrand}
