@@ -126,7 +126,7 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
 }
 
 const AIDEN_NAV_CSS = `
-.aiden-nav { display:flex; align-items:center; gap:12px; padding:12px 18px; background:#141417; border-bottom:1px solid #2a2a30; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; flex-wrap:wrap; position:sticky; top:0; z-index:40; }
+.aiden-nav { display:flex; align-items:center; gap:12px; padding:12px 18px; background:#141417; border-bottom:1px solid #2a2a30; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; flex-wrap:wrap; position:sticky; top:0; z-index:60; }
 .aiden-nav * { box-sizing:border-box; }
 .aiden-nav-brand { display:flex; align-items:center; gap:7px; text-decoration:none; }
 .aiden-nav-logo { height:22px; width:auto; display:block; }
