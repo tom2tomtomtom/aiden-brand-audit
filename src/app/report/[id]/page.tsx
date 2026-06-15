@@ -92,7 +92,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-screen bg-black-ink">
-      <header className="border-b-2 border-red-hot bg-black-deep sticky top-0 z-50">
+      <header className="border-b-2 border-red-hot bg-black-deep sticky top-[var(--aiden-nav-h,56px)] z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -124,7 +124,7 @@ export default function SharedReportPage({ params }: { params: Promise<{ id: str
         </div>
       </header>
 
-      <nav className="border-b border-border-subtle bg-black-deep/80 backdrop-blur-sm sticky top-14 sm:top-16 z-40">
+      <nav className="border-b border-border-subtle bg-black-deep/80 backdrop-blur-sm sticky top-[calc(var(--aiden-nav-h,56px)_+_3.5rem)] sm:top-[calc(var(--aiden-nav-h,56px)_+_4rem)] z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative">
             <div className="flex gap-1 overflow-x-auto scrollbar-hide">
