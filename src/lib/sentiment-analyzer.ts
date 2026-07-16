@@ -10,6 +10,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { extractAndRepairJson } from "./json-repair";
+import { recordCostEvent } from "./gateway-tokens";
 import type { SocialPost } from "./types";
 
 const client = new Anthropic({
@@ -100,6 +101,20 @@ Respond with ONLY valid JSON:
 Be brutally honest. Don't sanitize. If people hate something, say it. If sentiment is mixed, say mixed. Base everything on the actual post content, not assumptions.`,
       },
     ],
+  });
+
+  await recordCostEvent({
+    idempotencyKey: `anthropic:${response.id}`,
+    provider: "anthropic",
+    providerAccountAlias: "brand-audit",
+    providerRequestId: response.id,
+    model: response.model,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    cachedInputTokens: response.usage.cache_read_input_tokens ?? undefined,
+    metadata: {
+      cacheCreationInputTokens: response.usage.cache_creation_input_tokens,
+    },
   });
 
   const textBlocks = response.content.filter(

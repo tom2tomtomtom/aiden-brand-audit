@@ -64,7 +64,12 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
       json: async () => mockResponse,
     })
 
-    const result = await deductTokens('user-xyz', 'brand_audit', 'strategic_analysis')
+    const result = await deductTokens(
+      'user-xyz',
+      'brand_audit',
+      'strategic_analysis',
+      '11111111-1111-4111-8111-111111111111',
+    )
 
     expect(fetch).toHaveBeenCalledOnce()
     const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -72,7 +77,11 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
     expect(options.method).toBe('POST')
     expect(options.headers['X-Service-Key']).toBe('test-key-456')
     expect(options.headers['X-User-Id']).toBe('user-xyz')
-    expect(JSON.parse(options.body)).toEqual({ product: 'brand_audit', operation: 'strategic_analysis' })
+    expect(JSON.parse(options.body)).toEqual({
+      product: 'brand_audit',
+      operation: 'strategic_analysis',
+      requestId: '11111111-1111-4111-8111-111111111111',
+    })
     expect(result).toEqual(mockResponse)
   })
 
@@ -106,5 +115,39 @@ describe('getHeaders (via checkTokens/deductTokens)', () => {
 
     const result = await deductTokens('user-1', 'brand_audit', 'per_brand')
     expect(result).toEqual(payload)
+  })
+
+  it('records provider usage against the active cost context', async () => {
+    process.env.AIDEN_SERVICE_KEY = 'test-key'
+    process.env.GATEWAY_URL = 'https://test.aiden.services'
+    vi.resetModules()
+    const { recordCostEvent, withCostContext } = await import('../../src/lib/gateway-tokens')
+
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 201 })
+
+    const recorded = await withCostContext({
+      userId: 'user-cost',
+      requestId: '22222222-2222-4222-8222-222222222222',
+      operation: 'per_brand',
+    }, () => recordCostEvent({
+      idempotencyKey: 'anthropic:msg_123',
+      provider: 'anthropic',
+      providerRequestId: 'msg_123',
+      model: 'claude-sonnet-4-6',
+      inputTokens: 120,
+      outputTokens: 30,
+    }))
+
+    expect(recorded).toBe(true)
+    const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe('https://test.aiden.services/api/cost-events')
+    expect(JSON.parse(options.body)).toMatchObject({
+      requestId: '22222222-2222-4222-8222-222222222222',
+      product: 'brand_audit',
+      operation: 'per_brand',
+      providerRequestId: 'msg_123',
+      inputTokens: 120,
+      outputTokens: 30,
+    })
   })
 })

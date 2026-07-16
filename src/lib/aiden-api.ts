@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getCostContext, recordCostEvent } from "./gateway-tokens";
 import { extractAndRepairJson } from "./json-repair";
 
 const AIDEN_API_BASE = process.env.AIDEN_API_URL || "https://aiden-brain-api-v2-production.up.railway.app";
@@ -129,6 +130,20 @@ async function analyzeWithClaude(brandsData: BrandAnalysisInput[]): Promise<stri
     ],
   });
 
+  await recordCostEvent({
+    idempotencyKey: `anthropic:${response.id}`,
+    provider: "anthropic",
+    providerAccountAlias: "brand-audit",
+    providerRequestId: response.id,
+    model: response.model,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    cachedInputTokens: response.usage.cache_read_input_tokens ?? undefined,
+    metadata: {
+      cacheCreationInputTokens: response.usage.cache_creation_input_tokens,
+    },
+  });
+
   const raw = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
@@ -167,6 +182,18 @@ async function analyzeWithAidenAPI(brandsData: BrandAnalysisInput[]): Promise<st
     }
 
     const result: AidenChatResponse = await response.json();
+    const context = getCostContext();
+    if (context) {
+      await recordCostEvent({
+        idempotencyKey: `aiden-brain:${context.requestId}`,
+        provider: "aiden-brain-api",
+        providerAccountAlias: "brand-audit",
+        status: "unallocated",
+        metadata: {
+          reason: "brain_response_does_not_expose_provider_usage",
+        },
+      });
+    }
     const raw = result.data.content;
     const jsonStr = extractAndRepairJson(raw);
     JSON.parse(jsonStr);

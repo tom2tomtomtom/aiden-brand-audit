@@ -4,6 +4,9 @@
  * to gather organic social conversation data for brand analysis.
  */
 
+import { createHash } from "node:crypto";
+import { getCostContext, recordCostEvent } from "./gateway-tokens";
+
 const API_BASE = "https://api.scrapecreators.com/v1";
 
 function getApiKey(): string {
@@ -22,7 +25,22 @@ async function fetchApi<T>(url: string): Promise<T> {
   if (!response.ok) {
     throw new Error(`ScrapeCreators ${response.status}: ${await response.text()}`);
   }
-  return response.json() as Promise<T>;
+  const data = await response.json() as T;
+  const context = getCostContext();
+  if (context) {
+    const endpointHash = createHash("sha256").update(url).digest("hex").slice(0, 16);
+    await recordCostEvent({
+      idempotencyKey: `scrape-creators:${context.requestId}:${endpointHash}`,
+      provider: "scrape-creators",
+      providerAccountAlias: "brand-audit",
+      status: "unallocated",
+      metadata: {
+        reason: "provider_response_does_not_expose_request_cost",
+        endpoint: new URL(url).pathname,
+      },
+    });
+  }
+  return data;
 }
 
 // --- TikTok ---

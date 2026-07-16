@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { extractAndRepairJson } from "./json-repair";
+import { recordCostEvent } from "./gateway-tokens";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -62,6 +63,21 @@ Include ONLY items you actually found with real URLs. Do not fabricate entries. 
 Your final message MUST be the JSON object only. No preamble, no explanation, no markdown fences.`,
         },
       ],
+    });
+
+    await recordCostEvent({
+      idempotencyKey: `anthropic:${response.id}`,
+      provider: "anthropic",
+      providerAccountAlias: "brand-audit",
+      providerRequestId: response.id,
+      model: response.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      cachedInputTokens: response.usage.cache_read_input_tokens ?? undefined,
+      metadata: {
+        cacheCreationInputTokens: response.usage.cache_creation_input_tokens,
+        webSearchRequests: response.usage.server_tool_use?.web_search_requests,
+      },
     });
 
     const textBlocks = response.content.filter(

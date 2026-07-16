@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
@@ -10,7 +11,11 @@ import { analyzeWithAiden } from "@/lib/aiden-api";
 import { normalizeStrategicAnalysis } from "@/lib/normalize";
 import { gatherBrandIntel } from "@/lib/brand-intel";
 import { requireAuth } from "@/lib/auth";
-import { checkTokens, deductTokens as gatewayDeductTokens } from "@/lib/gateway-tokens";
+import {
+  checkTokens,
+  deductTokens as gatewayDeductTokens,
+  withCostContext,
+} from "@/lib/gateway-tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { BrandData, AuditResults, ProgressEvent } from "@/lib/types";
 
@@ -56,6 +61,8 @@ export async function POST(request: NextRequest) {
     );
   }
   const { brands } = parsed.data;
+  const perBrandRequestIds = brands.map(() => randomUUID());
+  const strategicAnalysisRequestId = randomUUID();
 
   // Gateway token costs. MUST stay in sync with aiden-gateway/lib/tokens.ts
   // (TOKEN_COSTS.brand_audit). The Gateway is the authoritative billing
@@ -180,7 +187,16 @@ export async function POST(request: NextRequest) {
 
           let ads: Awaited<ReturnType<typeof collectAds>> = [];
           try {
-            ads = await collectAds(brand.facebookPage || brand.name, "ALL", 50, resolvedFacebookPageId);
+            ads = await withCostContext({
+              userId: auth.user.id,
+              requestId: perBrandRequestIds[i],
+              operation: 'per_brand',
+            }, () => collectAds(
+              brand.facebookPage || brand.name,
+              "ALL",
+              50,
+              resolvedFacebookPageId,
+            ));
           } catch {
             ads = [];
           }
@@ -225,7 +241,11 @@ export async function POST(request: NextRequest) {
 
           let intel;
           try {
-            intel = await gatherBrandIntel(brand.name, brand.website);
+            intel = await withCostContext({
+              userId: auth.user.id,
+              requestId: perBrandRequestIds[i],
+              operation: 'per_brand',
+            }, () => gatherBrandIntel(brand.name, brand.website));
           } catch {
             intel = { pressReleases: [], pressCoverage: [], activations: [], brandDocuments: [], socialPresence: [], recentCampaigns: [], citations: [] };
           }
@@ -241,7 +261,11 @@ export async function POST(request: NextRequest) {
 
           let social: import("@/lib/types").SocialSentiment | null = null;
           try {
-            const allPosts = await collectSocialPosts(brand.name);
+            const allPosts = await withCostContext({
+              userId: auth.user.id,
+              requestId: perBrandRequestIds[i],
+              operation: 'per_brand',
+            }, () => collectSocialPosts(brand.name));
             const tiktok = allPosts.filter(p => p.platform === "tiktok");
             const instagram = allPosts.filter(p => p.platform === "instagram");
             const reddit = allPosts.filter(p => p.platform === "reddit");
@@ -266,7 +290,11 @@ export async function POST(request: NextRequest) {
 
             let sentiment = null;
             try {
-              sentiment = await analyzeSentiment(brand.name, allPosts);
+              sentiment = await withCostContext({
+                userId: auth.user.id,
+                requestId: perBrandRequestIds[i],
+                operation: 'per_brand',
+              }, () => analyzeSentiment(brand.name, allPosts));
             } catch {
               // Sentiment analysis is non-critical
             }
@@ -378,7 +406,11 @@ export async function POST(request: NextRequest) {
             } : null,
           }));
 
-          const analysisJson = await analyzeWithAiden(aidenInput);
+          const analysisJson = await withCostContext({
+            userId: auth.user.id,
+            requestId: strategicAnalysisRequestId,
+            operation: 'strategic_analysis',
+          }, () => analyzeWithAiden(aidenInput));
           clearInterval(aidenTicker);
           // LLM output is not guaranteed to match the StrategicAnalysis shape:
           // it can omit fields or truncate JSON, which crashes the report view
@@ -440,7 +472,12 @@ export async function POST(request: NextRequest) {
         if (hasTokenService) {
           let deductionFailed = false;
           for (let i = 0; i < brands.length; i++) {
-            const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'per_brand');
+            const r = await gatewayDeductTokens(
+              auth.user.id,
+              'brand_audit',
+              'per_brand',
+              perBrandRequestIds[i],
+            );
             if (!r.success) {
               console.error(
                 `[audit] Per-brand deduction failed for user ${auth.user.id} (brand ${i + 1}/${brands.length}): ${r.error || 'unknown'}`,
@@ -450,7 +487,12 @@ export async function POST(request: NextRequest) {
             }
           }
           if (!deductionFailed) {
-            const r = await gatewayDeductTokens(auth.user.id, 'brand_audit', 'strategic_analysis');
+            const r = await gatewayDeductTokens(
+              auth.user.id,
+              'brand_audit',
+              'strategic_analysis',
+              strategicAnalysisRequestId,
+            );
             if (!r.success) {
               console.error(
                 `[audit] Strategic-analysis deduction failed for user ${auth.user.id}: ${r.error || 'unknown'}`,
