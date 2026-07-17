@@ -241,14 +241,28 @@ async function resolvePageId(brandName: string): Promise<string | null> {
     const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     const normalBrand = normalize(brandName);
 
-    const exactMatch = candidates.find((c) => normalize(c.name) === normalBrand);
-    if (exactMatch) return exactMatch.page_id;
+    // UXA-20260717 F-028: only auto-pick an exact-name match when it is
+    // UNAMBIGUOUS. Two different advertisers can share a normalized name
+    // (an AU dairy brand and an overseas clothing label), and blindly
+    // taking the first — which the API tends to order by popularity —
+    // pulled the wrong company. If several candidates match the name
+    // exactly, we can't safely disambiguate here (searchCompanies exposes
+    // no country), so refuse: no ads beats wrong ads. website-identity is
+    // the trusted disambiguator; a caller with the site's own FB page never
+    // reaches this path.
+    const exactMatches = candidates.filter((c) => normalize(c.name) === normalBrand);
+    if (exactMatches.length === 1) return exactMatches[0].page_id;
+    if (exactMatches.length > 1) {
+      console.log(`[ads] "${brandName}" matched ${exactMatches.length} pages exactly by name — ambiguous, refusing to guess.`);
+      return null;
+    }
 
-    const closeMatch = candidates.find((c) => {
+    // A single close (prefix) match is acceptable; multiple is ambiguous.
+    const closeMatches = candidates.filter((c) => {
       const n = normalize(c.name);
-      return n === normalBrand || (n.startsWith(normalBrand) && n.length <= normalBrand.length + 8);
+      return n.startsWith(normalBrand) && n.length <= normalBrand.length + 8;
     });
-    if (closeMatch) return closeMatch.page_id;
+    if (closeMatches.length === 1) return closeMatches[0].page_id;
 
     // No like-based fallback: returning a popular but unrelated page
     // (e.g. "Memo" literary page when user means thememo.com.au) was

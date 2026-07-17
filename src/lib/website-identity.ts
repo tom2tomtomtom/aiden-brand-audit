@@ -8,6 +8,33 @@ export interface WebsiteIdentity {
   facebookPageId: string | null;
 }
 
+// UXA-20260717 F-028: derive the advertiser's country from the website so the
+// Meta Ad Library search is geo-scoped. An unscoped ("ALL") name search
+// matched an overseas clothing brand for an Australian dairy brand of a
+// similar name. ccTLD → ISO-3166 alpha-2. Generic gTLDs (.com/.org/.io…)
+// return null → caller keeps "ALL".
+const CCTLD_COUNTRY: Record<string, string> = {
+  au: "AU", nz: "NZ", uk: "GB", ca: "CA", ie: "IE", in: "IN", sg: "SG",
+  za: "ZA", de: "DE", fr: "FR", es: "ES", it: "IT", nl: "NL", se: "SE",
+  no: "NO", dk: "DK", fi: "FI", ch: "CH", at: "AT", be: "BE", pt: "PT",
+  br: "BR", mx: "MX", jp: "JP", kr: "KR", ae: "AE", us: "US",
+};
+
+export function countryFromWebsite(website: string): string | undefined {
+  if (!website) return undefined;
+  let host: string;
+  try {
+    const withProto = /^https?:\/\//i.test(website) ? website : `https://${website}`;
+    host = new URL(withProto).hostname.toLowerCase();
+  } catch {
+    host = website.toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+  }
+  const labels = host.split(".");
+  const tld = labels[labels.length - 1];
+  // Second-level ccTLDs like .com.au / .co.uk / .co.nz — the ccTLD is last.
+  return CCTLD_COUNTRY[tld] ?? undefined;
+}
+
 const FB_HANDLE_BLOCKLIST = new Set([
   "sharer", "dialog", "plugins", "tr", "share.php", "groups", "events",
   "intent", "home.php", "login", "watch", "gaming", "marketplace",

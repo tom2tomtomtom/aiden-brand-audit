@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { collectLogos } from "@/lib/apify";
 import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
-import { resolveWebsiteIdentity } from "@/lib/website-identity";
+import { resolveWebsiteIdentity, countryFromWebsite } from "@/lib/website-identity";
 import { collectSocialPosts } from "@/lib/social-scraper";
 import { analyzeSentiment } from "@/lib/sentiment-analyzer";
 import { extractColors } from "@/lib/colors";
@@ -139,6 +139,12 @@ export async function POST(request: NextRequest) {
         const totalBrands = brands.length;
 
         for (let i = 0; i < totalBrands; i++) {
+          // UXA-20260717 F-024: if the client cancelled/disconnected
+          // (`closed`), stop before doing more paid provider work. The
+          // `finally` below still cleans up, and crucially we never reach
+          // the deduction block — a cancelled audit costs zero tokens.
+          if (closed) return;
+
           const brand = brands[i];
           const brandSlice = 75 / totalBrands;
           const brandProgress = i * brandSlice;
@@ -193,7 +199,10 @@ export async function POST(request: NextRequest) {
               operation: 'per_brand',
             }, () => collectAds(
               brand.facebookPage || brand.name,
-              "ALL",
+              // F-028: geo-scope the Meta search to the brand's own country
+              // (from its website ccTLD) so a same-name overseas advertiser
+              // can't be substituted. Generic gTLDs fall back to "ALL".
+              countryFromWebsite(brand.website) ?? "ALL",
               50,
               resolvedFacebookPageId,
             ));
@@ -435,6 +444,9 @@ export async function POST(request: NextRequest) {
           };
         }
 
+        // F-024: bail before the report save + deduction if the client is gone.
+        if (closed) return;
+
         const duration = Date.now() - startTime;
 
         send({
@@ -469,7 +481,14 @@ export async function POST(request: NextRequest) {
         // turned every Gateway hiccup or 402 into a free-results regression.
         // We deduct first; only if every deduction succeeds does the client
         // see the full result payload.
-        if (hasTokenService) {
+        //
+        // F-024: never deduct for a cancelled/disconnected audit. `closed`
+        // is set by cancel() (client aborted the stream) or by safeEnqueue
+        // hitting a dead controller. Either way the user isn't receiving a
+        // report, so charging them violates "a cancelled paid action deducts
+        // zero". The already-incurred provider cost (Apify/Claude) is our
+        // loss, which is the correct trade for an explicit cancel.
+        if (hasTokenService && !closed) {
           let deductionFailed = false;
           for (let i = 0; i < brands.length; i++) {
             const r = await gatewayDeductTokens(

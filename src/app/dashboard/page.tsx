@@ -249,7 +249,8 @@ function DashboardContent() {
   }
 
   function removeBrand(index: number) {
-    if (brands.length <= 2) { toast.error("Minimum 2 brands required"); return; }
+    // F-025: keep at least one brand row, not two.
+    if (brands.length <= 1) { toast.error("At least one brand is required"); return; }
     setBrands(brands.filter((_, i) => i !== index));
   }
 
@@ -273,7 +274,7 @@ function DashboardContent() {
   async function startAudit() {
     const hasAnyInput = brands.some((b) => b.name.trim() || b.website.trim());
     if (!hasAnyInput) {
-      toast.error("Enter at least 2 brand names to start an audit");
+      toast.error("Enter a brand name and website to start an audit");
       return;
     }
 
@@ -283,9 +284,11 @@ function DashboardContent() {
       return;
     }
 
+    // UXA-20260717 F-025: a single-brand audit is valid (per-brand pricing).
+    // The backend accepts min 1; the old 2-brand floor blocked it needlessly.
     const validBrands = brands.filter((b) => b.name.trim() && b.website.trim());
-    if (validBrands.length < 2) {
-      toast.error("Enter at least 2 brands with names and websites");
+    if (validBrands.length < 1) {
+      toast.error("Enter at least one brand with a name and website");
       return;
     }
 
@@ -452,9 +455,9 @@ function DashboardContent() {
                 ))}
               </div>
 
-              {brands.filter(b => b.name.trim()).length < 2 && (
+              {brands.filter(b => b.name.trim()).length === 0 && (
                 <p className="mt-4 text-[10px] text-white-dim font-geist-mono uppercase tracking-wide">
-                  Brand Audit compares brands against each other — add at least 2 to run an audit.
+                  Audit one brand, or add more to compare them against each other.
                 </p>
               )}
 
@@ -470,9 +473,7 @@ function DashboardContent() {
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-white-dim font-geist-mono">
                     ~{estimateAuditCost(
-                      brands.filter(b => b.name.trim()).length >= 2
-                        ? brands.filter(b => b.name.trim()).length
-                        : brands.length
+                      Math.max(1, brands.filter(b => b.name.trim()).length)
                     ).total} tokens
                   </span>
                   <button
