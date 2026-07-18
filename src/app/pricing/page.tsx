@@ -17,7 +17,7 @@ const TOKEN_COSTS = {
   strategic_analysis: 20,
 } as const;
 
-const FREE_TOKEN_GRANT = 200;
+const FREE_TOKEN_GRANT = 50;
 
 const GATEWAY_PRICING_URL = "https://www.aiden.services/pricing";
 
@@ -143,7 +143,7 @@ export default function PricingPage() {
               never expires.
             </p>
             <p className="text-xs text-white-dim font-geist-mono">
-              ≈ {Math.floor(FREE_TOKEN_GRANT / (TOKEN_COSTS.per_brand + TOKEN_COSTS.strategic_analysis))} full single-brand audits
+              {FREE_TOKEN_GRANT}-token welcome credit toward your first audit
             </p>
             {!isAuthenticated && (
               <a
