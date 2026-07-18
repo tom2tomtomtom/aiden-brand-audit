@@ -43,6 +43,7 @@ export function ExportPdfButton({ results }: { results: AuditResults }) {
     <button
       onClick={handleExport}
       disabled={exporting}
+      aria-label={exporting ? "Generating PDF" : "Export PDF"}
       className="flex items-center gap-2 bg-red-hot text-white px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-red-hot hover:bg-red-dim transition-all disabled:opacity-50"
     >
       {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}

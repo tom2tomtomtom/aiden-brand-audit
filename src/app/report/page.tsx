@@ -83,6 +83,7 @@ export default function ReportPage() {
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={() => router.push("/")}
+                aria-label="Back to dashboard"
                 className="text-white-muted hover:text-red-hot transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -105,6 +106,7 @@ export default function ReportPage() {
                     navigator.clipboard.writeText(`${window.location.origin}/report/${results.id}`);
                     toast.success("Share link copied");
                   }}
+                  aria-label="Copy share link"
                   className="flex items-center gap-2 bg-black-card text-white-muted px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
                 >
                   <Share2 className="h-3 w-3" />
