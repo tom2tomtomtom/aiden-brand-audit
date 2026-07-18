@@ -259,12 +259,12 @@ function DashboardContent() {
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
-      toast.success("Payment successful! Your plan has been upgraded.");
-      announceBalanceChange(window);
+      toast.success("Payment received. Your account is updating.");
+      announceBalanceChange(window, "payment-return");
     }
     if (searchParams.get("topup") === "success") {
-      toast.success("Tokens added to your balance!");
-      announceBalanceChange(window);
+      toast.success("Payment received. Your token balance is updating.");
+      announceBalanceChange(window, "payment-return");
     }
   }, [searchParams]);
 
@@ -393,7 +393,7 @@ function DashboardContent() {
           msg = `Need ${errData.tokenCost}, have ${errData.balance}. Top up ${topUp} token${topUp !== 1 ? "s" : ""} to continue.`;
         }
         toast.error(msg);
-        announceBalanceChange(window);
+        announceBalanceChange(window, "insufficient-tokens");
         setIsAnalyzing(false);
         return;
       }
@@ -412,7 +412,7 @@ function DashboardContent() {
           setProgressIndeterminate(false);
           setCurrentStep("Complete");
           sessionStorage.setItem("auditResults", JSON.stringify(event.results));
-          announceBalanceChange(window);
+          announceBalanceChange(window, "audit-complete");
           toast.success("Brand DNA analysis complete");
           router.push("/report");
         } else if (event.type === "error") {
@@ -427,7 +427,7 @@ function DashboardContent() {
       } else {
         toast.error(error instanceof Error ? error.message : "Audit failed");
       }
-      announceBalanceChange(window);
+      announceBalanceChange(window, "audit-uncertain");
       setIsAnalyzing(false);
       abortControllerRef.current = null;
     }

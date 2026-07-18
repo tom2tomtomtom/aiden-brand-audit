@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import {
   AIDEN_BALANCE_REFRESH_EVENT,
   AIDEN_BALANCE_STORAGE_KEY,
+  balanceRefreshModeFromEvent,
+  balanceRefreshModeFromStorage,
+  type BalanceRefreshMode,
 } from '@/lib/balance-events'
+import { createBalanceRefresher } from '@/lib/balance-refresh'
 
 const GATEWAY = 'https://www.aiden.services'
 
@@ -34,47 +38,50 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
   const [email, setEmail] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const latestRequestRef = useRef(0)
 
   useEffect(() => {
-    let disposed = false
-
-    function refreshBalance() {
-      const requestId = ++latestRequestRef.current
-      fetch(`${GATEWAY}/api/tokens/balance`, {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (disposed || requestId !== latestRequestRef.current || !d) return
-          if (typeof d.email === 'string') setEmail(d.email)
-          if (typeof d.balance === 'number') setBalance(d.balance)
+    const refresher = createBalanceRefresher({
+      async loadBalance() {
+        const response = await fetch(`${GATEWAY}/api/tokens/balance`, {
+          credentials: 'include',
+          cache: 'no-store',
         })
-        .catch(() => {})
+        return response.ok ? response.json() : null
+      },
+      applyBalance(d) {
+        if (typeof d.email === 'string') setEmail(d.email)
+        if (typeof d.balance === 'number') setBalance(d.balance)
+      },
+    })
+
+    function refreshForMode(mode: BalanceRefreshMode) {
+      if (mode === 'reconcile') refresher.reconcile()
+      else refresher.refreshOnce()
     }
 
-    const onRefresh = () => refreshBalance()
+    const onRefresh = (event: Event) => refreshForMode(balanceRefreshModeFromEvent(event))
+    const onFocus = () => refresher.refreshOnce()
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshBalance()
+      if (document.visibilityState === 'visible') refresher.refreshOnce()
     }
     const onStorage = (event: StorageEvent) => {
-      if (event.key === AIDEN_BALANCE_STORAGE_KEY) refreshBalance()
+      if (event.key === AIDEN_BALANCE_STORAGE_KEY) {
+        refreshForMode(balanceRefreshModeFromStorage(event.newValue))
+      }
     }
 
-    refreshBalance()
+    refresher.refreshOnce()
     window.addEventListener(AIDEN_BALANCE_REFRESH_EVENT, onRefresh)
-    window.addEventListener('focus', onRefresh)
+    window.addEventListener('focus', onFocus)
     window.addEventListener('storage', onStorage)
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
-      disposed = true
-      latestRequestRef.current += 1
       window.removeEventListener(AIDEN_BALANCE_REFRESH_EVENT, onRefresh)
-      window.removeEventListener('focus', onRefresh)
+      window.removeEventListener('focus', onFocus)
       window.removeEventListener('storage', onStorage)
       document.removeEventListener('visibilitychange', onVisibility)
+      refresher.dispose()
     }
   }, [])
 
