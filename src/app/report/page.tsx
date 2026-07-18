@@ -83,7 +83,7 @@ export default function ReportPage() {
             <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={() => router.push("/")}
-                aria-label="Back to dashboard"
+                aria-label="Back to Brand Audit"
                 className="text-white-muted hover:text-red-hot transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />

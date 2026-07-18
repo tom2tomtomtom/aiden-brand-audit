@@ -9,7 +9,8 @@ describe("report actions accessibility", () => {
   ])("keeps icon-only mobile actions named in %s", (path) => {
     const source = readFileSync(resolve(process.cwd(), path), "utf8");
 
-    expect(source).toContain('aria-label="Back to dashboard"');
+    expect(source).toContain('aria-label="Back to Brand Audit"');
+    expect(source).not.toContain('aria-label="Back to dashboard"');
     expect(source).toContain('aria-label="Copy share link"');
   });
 
