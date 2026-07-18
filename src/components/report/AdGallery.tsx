@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BrandData, BrandAd } from "@/lib/types";
 import { ExternalLink, Filter, Video, LayoutGrid, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { shouldShowBrandPicker } from "@/lib/brand-form";
 
 function CarouselViewer({ images }: { images: string[] }) {
   const [current, setCurrent] = useState(0);
@@ -181,19 +182,21 @@ export function AdGallery({ brands }: { brands: BrandData[] }) {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-white-dim" />
-            <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="bg-black-card border border-border-subtle text-white-full px-3 py-1.5 text-xs uppercase tracking-wide"
-            >
-              <option value="all">All Brands</option>
-              {brands.map((b) => (
-                <option key={b.name} value={b.name}>{b.name}</option>
-              ))}
-            </select>
-          </div>
+          {shouldShowBrandPicker(brands.length) && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-white-dim" />
+              <select
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="bg-black-card border border-border-subtle text-white-full px-3 py-1.5 text-xs uppercase tracking-wide"
+              >
+                <option value="all">All Brands</option>
+                {brands.map((b) => (
+                  <option key={b.name} value={b.name}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

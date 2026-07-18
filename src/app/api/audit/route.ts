@@ -2,8 +2,12 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { collectLogos } from "@/lib/apify";
-import { collectAds, computeAdAnalytics } from "@/lib/scrape-creators";
-import { resolveWebsiteIdentity, countryFromWebsite } from "@/lib/website-identity";
+import {
+  collectAds,
+  computeAdAnalytics,
+  FacebookPageConfirmationRequiredError,
+} from "@/lib/scrape-creators";
+import { countryFromWebsite } from "@/lib/website-identity";
 import { collectSocialPosts } from "@/lib/social-scraper";
 import { analyzeSentiment } from "@/lib/sentiment-analyzer";
 import { extractColors } from "@/lib/colors";
@@ -61,6 +65,14 @@ export async function POST(request: NextRequest) {
     );
   }
   const { brands } = parsed.data;
+  if (brands.some((brand) => !brand.facebookPage || !brand.facebookPageId)) {
+    return new Response(
+      JSON.stringify({
+        error: "Confirm the correct Facebook Page for every brand before starting.",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
   const perBrandRequestIds = brands.map(() => randomUUID());
   const strategicAnalysisRequestId = randomUUID();
 
@@ -101,21 +113,23 @@ export async function POST(request: NextRequest) {
   }
 
   const encoder = new TextEncoder();
-  // `closed` is shared between start() and cancel() so a client disconnect
-  // (which fires cancel() and closes the controller from the runtime side)
-  // doesn't leave timers and late awaits trying to enqueue into a dead
-  // controller. That was the source of the runaway uncaughtException loop:
-  // `Invalid state: Controller is already closed` from the keepalive interval.
-  let closed = false;
+  // Cancellation is accepted only until finalization commits. After that
+  // point the report is recoverable from history, so save + billing must run
+  // to completion even if the browser disconnects. Stream writability is
+  // tracked separately so late awaits never enqueue into a dead controller.
+  let cancellationAccepted = false;
+  let cancellationOpen = true;
+  let streamWritable = true;
   const stream = new ReadableStream({
     async start(controller) {
       function safeEnqueue(chunk: Uint8Array) {
-        if (closed) return;
+        if (!streamWritable) return;
         try {
           controller.enqueue(chunk);
         } catch {
           // Underlying stream already closed (client disconnect, abort, etc.)
-          closed = true;
+          streamWritable = false;
+          if (cancellationOpen) cancellationAccepted = true;
         }
       }
 
@@ -125,7 +139,7 @@ export async function POST(request: NextRequest) {
 
       // Keepalive to prevent proxy idle-connection drops (Railway 60s timeout)
       const keepalive = setInterval(() => {
-        if (closed) {
+        if (!streamWritable) {
           clearInterval(keepalive);
           return;
         }
@@ -139,11 +153,9 @@ export async function POST(request: NextRequest) {
         const totalBrands = brands.length;
 
         for (let i = 0; i < totalBrands; i++) {
-          // UXA-20260717 F-024: if the client cancelled/disconnected
-          // (`closed`), stop before doing more paid provider work. The
-          // `finally` below still cleans up, and crucially we never reach
-          // the deduction block — a cancelled audit costs zero tokens.
-          if (closed) return;
+          // UXA-20260717 F-024: an accepted cancellation stops before more
+          // paid provider work and never reaches report save or billing.
+          if (cancellationAccepted) return;
 
           const brand = brands[i];
           const brandSlice = 75 / totalBrands;
@@ -162,26 +174,6 @@ export async function POST(request: NextRequest) {
             logos = await collectLogos(brand.website);
           } catch {
             logos = { primaryLogo: null, logoVariants: [], favicon: null, brandName: brand.name, brandColors: null };
-          }
-
-          // If user didn't pre-select a verified Facebook page, try to
-          // discover one from the brand website (og:meta + FB footer
-          // links). Stops short brand names ("the memo") from matching
-          // unrelated FB pages by keyword fallback.
-          let resolvedFacebookPageId: string | undefined = brand.facebookPageId;
-          if (!resolvedFacebookPageId && brand.website) {
-            try {
-              const identity = await resolveWebsiteIdentity(brand.website);
-              if (identity.facebookPageId) {
-                resolvedFacebookPageId = identity.facebookPageId;
-                send({
-                  type: "progress",
-                  step: `Identified ${brand.name}`,
-                  progress: bp(0.2),
-                  detail: `Matched Facebook page from ${brand.website}`,
-                });
-              }
-            } catch { /* non-critical, fall through */ }
           }
 
           send({
@@ -204,9 +196,13 @@ export async function POST(request: NextRequest) {
               // can't be substituted. Generic gTLDs fall back to "ALL".
               countryFromWebsite(brand.website) ?? "ALL",
               50,
-              resolvedFacebookPageId,
+              brand.facebookPageId,
             ));
-          } catch {
+          } catch (error) {
+            if (error instanceof FacebookPageConfirmationRequiredError) {
+              send({ type: "error", message: error.message });
+              return;
+            }
             ads = [];
           }
 
@@ -352,21 +348,9 @@ export async function POST(request: NextRequest) {
           type: "progress",
           step: "Analyzing competitive landscape",
           progress: 80,
+          indeterminate: true,
           detail: "Synthesizing strategic intelligence. This step takes 30-60 seconds.",
         });
-
-        const aidenTicker = setInterval(() => {
-          if (closed) {
-            clearInterval(aidenTicker);
-            return;
-          }
-          send({
-            type: "progress",
-            step: "Analyzing competitive landscape",
-            progress: 85,
-            detail: "Still processing. Synthesizing ads, press, and social sentiment data.",
-          });
-        }, 15_000);
 
         let strategicAnalysis;
         try {
@@ -420,13 +404,11 @@ export async function POST(request: NextRequest) {
             requestId: strategicAnalysisRequestId,
             operation: 'strategic_analysis',
           }, () => analyzeWithAiden(aidenInput));
-          clearInterval(aidenTicker);
           // LLM output is not guaranteed to match the StrategicAnalysis shape:
           // it can omit fields or truncate JSON, which crashes the report view
           // and PDF export on `.length`/Object.entries. Force the full shape.
           strategicAnalysis = normalizeStrategicAnalysis(JSON.parse(analysisJson));
         } catch (e: unknown) {
-          clearInterval(aidenTicker);
           console.error("[audit] Strategic analysis failed:", e instanceof Error ? e.message : e);
           strategicAnalysis = {
             executiveSummary: {
@@ -444,15 +426,21 @@ export async function POST(request: NextRequest) {
           };
         }
 
-        // F-024: bail before the report save + deduction if the client is gone.
-        if (closed) return;
+        // F-024: this is the atomic cancellation cutoff. Before this line an
+        // accepted cancellation saves and charges nothing. From this line on,
+        // a browser disconnect cannot interrupt finalization. Billing only
+        // begins after the report has been durably saved for later recovery.
+        if (cancellationAccepted) return;
+        cancellationOpen = false;
 
         const duration = Date.now() - startTime;
 
         send({
           type: "progress",
-          step: "Compiling intelligence report",
+          step: "Finalizing report and billing",
           progress: 95,
+          cancellable: false,
+          detail: "Finalizing. Once the report is saved, billing will complete even if this page closes.",
         });
 
         const results: AuditResults = {
@@ -463,18 +451,24 @@ export async function POST(request: NextRequest) {
           createdAt: new Date().toISOString(),
         };
 
+        let savedId: string | null = null;
         try {
           const { saveReport } = await import("@/lib/supabase/reports");
-          const savedId = await saveReport(results, auth.user.id);
+          savedId = await saveReport(results, auth.user.id);
           if (!savedId) {
             console.error("[audit] Report save returned null. Check Supabase config and RLS policies.");
-            // Prevent the client from surfacing a broken share link.
-            results.id = undefined;
           }
         } catch (saveErr) {
           console.error("[audit] Report save exception:", saveErr instanceof Error ? saveErr.message : saveErr);
-          results.id = undefined;
         }
+        if (!savedId) {
+          send({
+            type: "error",
+            message: "The report could not be saved, so no tokens were deducted. Please retry.",
+          });
+          return;
+        }
+        results.id = savedId;
 
         // BA-G-2: Deduct BEFORE emitting `complete`. Previously the client
         // received and rendered results before the deduction loop ran, which
@@ -482,13 +476,10 @@ export async function POST(request: NextRequest) {
         // We deduct first; only if every deduction succeeds does the client
         // see the full result payload.
         //
-        // F-024: never deduct for a cancelled/disconnected audit. `closed`
-        // is set by cancel() (client aborted the stream) or by safeEnqueue
-        // hitting a dead controller. Either way the user isn't receiving a
-        // report, so charging them violates "a cancelled paid action deducts
-        // zero". The already-incurred provider cost (Apify/Claude) is our
-        // loss, which is the correct trade for an explicit cancel.
-        if (hasTokenService && !closed) {
+        // Once the durable report exists, finish every idempotent deduction
+        // even if the client disconnects. Stopping between save and billing
+        // would produce a free completed report or a partial charge.
+        if (hasTokenService) {
           let deductionFailed = false;
           for (let i = 0; i < brands.length; i++) {
             const r = await gatewayDeductTokens(
@@ -548,8 +539,8 @@ export async function POST(request: NextRequest) {
         });
       } finally {
         clearInterval(keepalive);
-        if (!closed) {
-          closed = true;
+        if (streamWritable) {
+          streamWritable = false;
           try {
             controller.close();
           } catch {
@@ -559,9 +550,10 @@ export async function POST(request: NextRequest) {
       }
     },
     cancel() {
-      // Client disconnected before stream finished. Stop further enqueues
-      // from any in-flight async work or the keepalive ticker.
-      closed = true;
+      // Always stop stream writes. Only cancellations received before the
+      // finalization cutoff are accepted as zero-charge cancellations.
+      streamWritable = false;
+      if (cancellationOpen) cancellationAccepted = true;
     },
   });
 

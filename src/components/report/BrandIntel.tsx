@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BrandData } from "@/lib/types";
 import { Newspaper, Megaphone, FileText, Globe, Rocket, ExternalLink, Quote } from "lucide-react";
+import { shouldShowBrandPicker } from "@/lib/brand-form";
 
 function asArray<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
@@ -105,19 +106,21 @@ export function BrandIntel({ brands }: { brands: BrandData[] }) {
         <h2 className="text-2xl font-bold text-red-hot uppercase tracking-tight">
           Brand Intelligence
         </h2>
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-white-dim" />
-          <select
-            value={selectedBrand}
-            onChange={(e) => setSelectedBrand(e.target.value)}
-            className="bg-black-card border border-border-subtle text-white-full px-3 py-1.5 text-xs uppercase tracking-wide"
-          >
-            <option value="all">All Brands</option>
-            {brands.map((b) => (
-              <option key={b.name} value={b.name}>{b.name}</option>
-            ))}
-          </select>
-        </div>
+        {shouldShowBrandPicker(brands.length) && (
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-white-dim" />
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="bg-black-card border border-border-subtle text-white-full px-3 py-1.5 text-xs uppercase tracking-wide"
+            >
+              <option value="all">All Brands</option>
+              {brands.map((b) => (
+                <option key={b.name} value={b.name}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {filteredBrands.map((brand) => {

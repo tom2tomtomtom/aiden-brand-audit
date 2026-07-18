@@ -206,6 +206,8 @@ export type ProgressEvent = {
   step: string;
   progress: number;
   detail?: string;
+  indeterminate?: boolean;
+  cancellable?: boolean;
 } | {
   type: "complete";
   results: AuditResults;

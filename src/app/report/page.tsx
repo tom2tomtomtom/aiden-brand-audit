@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
 import { normalizeAuditResults } from "@/lib/normalize";
 import { formatDuration } from "@/lib/utils";
+import { formatBrandCount } from "@/lib/brand-form";
 import { ExportPdfButton } from "@/components/report/ExportPdfButton";
 import { ExecutiveSummary } from "@/components/report/ExecutiveSummary";
 import { BrandCards } from "@/components/report/BrandCards";
@@ -96,7 +97,7 @@ export default function ReportPage() {
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <span className="hidden sm:inline text-xs text-white-dim uppercase tracking-wide">
-                {results.brands.length} brands analyzed
+                {formatBrandCount(results.brands.length)} analyzed
               </span>
               {results.id && (
                 <button

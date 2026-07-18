@@ -10,6 +10,13 @@ import { getCostContext, recordCostEvent } from "./gateway-tokens";
 
 const API_BASE = "https://api.scrapecreators.com/v1/facebook/adLibrary";
 
+export class FacebookPageConfirmationRequiredError extends Error {
+  constructor(brandName: string) {
+    super(`Select the correct Facebook Page for ${brandName} before retrying.`);
+    this.name = "FacebookPageConfirmationRequiredError";
+  }
+}
+
 function getApiKey(): string {
   const key = process.env.SCRAPE_CREATORS_API_KEY;
   if (!key) throw new Error("SCRAPE_CREATORS_API_KEY not configured");
@@ -229,57 +236,9 @@ function extractVideoUrl(ad: FacebookAd): string | null {
 }
 
 /**
- * Auto-discover the correct Facebook page ID for a brand using the company search API.
- * Returns the best-matching page_id or null.
- */
-async function resolvePageId(brandName: string): Promise<string | null> {
-  try {
-    const result = await searchCompanies(brandName);
-    const candidates = result.searchResults || [];
-    if (candidates.length === 0) return null;
-
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const normalBrand = normalize(brandName);
-
-    // UXA-20260717 F-028: only auto-pick an exact-name match when it is
-    // UNAMBIGUOUS. Two different advertisers can share a normalized name
-    // (an AU dairy brand and an overseas clothing label), and blindly
-    // taking the first — which the API tends to order by popularity —
-    // pulled the wrong company. If several candidates match the name
-    // exactly, we can't safely disambiguate here (searchCompanies exposes
-    // no country), so refuse: no ads beats wrong ads. website-identity is
-    // the trusted disambiguator; a caller with the site's own FB page never
-    // reaches this path.
-    const exactMatches = candidates.filter((c) => normalize(c.name) === normalBrand);
-    if (exactMatches.length === 1) return exactMatches[0].page_id;
-    if (exactMatches.length > 1) {
-      console.log(`[ads] "${brandName}" matched ${exactMatches.length} pages exactly by name — ambiguous, refusing to guess.`);
-      return null;
-    }
-
-    // A single close (prefix) match is acceptable; multiple is ambiguous.
-    const closeMatches = candidates.filter((c) => {
-      const n = normalize(c.name);
-      return n.startsWith(normalBrand) && n.length <= normalBrand.length + 8;
-    });
-    if (closeMatches.length === 1) return closeMatches[0].page_id;
-
-    // No like-based fallback: returning a popular but unrelated page
-    // (e.g. "Memo" literary page when user means thememo.com.au) was
-    // the 2026-04-27 wrong-brand bug. Prefer no ads over wrong ads.
-    // website-identity.ts is the trusted disambiguator now.
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Resolve a Facebook page_id from a known FB alias (e.g. "thememohq"
- * scraped from a brand website's footer link). Stricter than
- * resolvePageId. Requires an exact alias match rather than a fuzzy
- * name match, because the alias comes from the brand's own site and
- * is treated as authoritative.
+ * scraped from a brand website's footer link). Requires an exact alias
+ * match because the alias comes from the brand's own site.
  */
 export async function resolvePageIdByAlias(alias: string): Promise<string | null> {
   try {
@@ -295,62 +254,22 @@ export async function resolvePageIdByAlias(alias: string): Promise<string | null
 
 /**
  * Collect ads for a brand. Resolves the correct Facebook page, then fetches ads by page ID.
- * Falls back to keyword search only as a last resort.
+ * Never falls back to a name query: no ads is safer than a wrong advertiser.
  */
 export async function collectAds(brandName: string, country = "ALL", maxAds = 50, pageId?: string) {
-  let rawAds: FacebookAd[] = [];
-  let resolvedPageId = pageId || null;
+  const resolvedPageId = pageId?.trim();
+  if (!resolvedPageId) throw new FacebookPageConfirmationRequiredError(brandName);
 
-  if (!resolvedPageId) {
-    resolvedPageId = await resolvePageId(brandName);
-    if (resolvedPageId) {
-      console.log(`[ads] Resolved ${brandName} → page_id: ${resolvedPageId}`);
-    }
-  }
-
-  if (resolvedPageId) {
-    try {
-      const result = await getCompanyAds({ pageId: resolvedPageId, country, status: "ACTIVE" });
-      rawAds = result.results || [];
-    } catch { /* fall through */ }
-  }
-
-  if (rawAds.length === 0) {
-    try {
-      const companyResult = await getCompanyAds({ companyName: brandName, country, status: "ACTIVE" });
-      rawAds = companyResult.results || [];
-
-      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const normalBrand = normalize(brandName);
-      const filtered = rawAds.filter((ad) => {
-        const pageName = normalize(ad.page_name || ad.pageName || ad.snapshot?.page_name || "");
-        return pageName === normalBrand
-          || (pageName.startsWith(normalBrand) && pageName.length <= normalBrand.length + 10)
-          || (normalBrand.startsWith(pageName) && pageName.length >= normalBrand.length - 3);
-      });
-      if (filtered.length > 0) rawAds = filtered;
-    } catch { /* fall through */ }
-  }
-
-  if (rawAds.length === 0 && !resolvedPageId) {
-    try {
-      const searchResult = await searchAds({ query: brandName, country, status: "ACTIVE" });
-      const candidates = searchResult.searchResults || [];
-
-      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const normalBrand = normalize(brandName);
-      rawAds = candidates.filter((ad) => {
-        const pageName = normalize(ad.page_name || ad.pageName || ad.snapshot?.page_name || "");
-        return pageName === normalBrand
-          || (pageName.startsWith(normalBrand) && pageName.length <= normalBrand.length + 6);
-      });
-
-      if (rawAds.length === 0) {
-        console.log(`[ads] Keyword search for "${brandName}" returned ${candidates.length} results but none from a matching page. Discarding to avoid false matches.`);
-      }
-    } catch {
-      return [];
-    }
+  let rawAds: FacebookAd[];
+  try {
+    const result = await getCompanyAds({ pageId: resolvedPageId, country, status: "ACTIVE" });
+    rawAds = (result.results || []).filter(
+      (ad) => String(ad.snapshot?.page_id ?? "") === resolvedPageId,
+    );
+  } catch {
+    // A Page ID is authoritative. If it fails or has no active ads, do not
+    // silently substitute a same-name advertiser.
+    return [];
   }
 
   return rawAds.slice(0, maxAds).map((ad) => {

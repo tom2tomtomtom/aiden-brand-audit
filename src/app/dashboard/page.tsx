@@ -7,6 +7,22 @@ import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Cloc
 import { toast } from "sonner";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
 import { estimateAuditCost } from "@/lib/tokens";
+import {
+  AUDIT_CANCELLATION_MESSAGE,
+  getAuditActivityLabel,
+  getAuditStatusMessage,
+  readAuditEventStream,
+} from "@/lib/audit-stream";
+import {
+  canRemoveBrand,
+  createInitialBrands,
+  formatBrandCount,
+  getFacebookConfirmationError,
+  removeBrandAt,
+  updateBrandField,
+  updateFacebookPageQuery,
+} from "@/lib/brand-form";
+import { CompanySearchRequestGate } from "@/lib/company-search";
 
 interface ReportSummary {
   id: string;
@@ -24,20 +40,39 @@ interface CompanyResult {
   image_uri: string;
 }
 
-function CompanySearch({ brand, index, onSelect }: {
+function CompanySearch({ brand, index, onSelect, onQueryChange }: {
   brand: BrandConfig;
   index: number;
   onSelect: (index: number, company: CompanyResult) => void;
+  onQueryChange: (index: number, value: string) => void;
 }) {
   const [query, setQuery] = useState(brand.facebookPage || "");
   const [results, setResults] = useState<CompanyResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchCompleted, setSearchCompleted] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const queryRef = useRef(query);
+  const requestGateRef = useRef<CompanySearchRequestGate | null>(null);
+  if (!requestGateRef.current) requestGateRef.current = new CompanySearchRequestGate();
   const inputId = `fb-search-${index}`;
   const listboxId = `fb-listbox-${index}`;
+
+  useEffect(() => {
+    const nextQuery = brand.facebookPage || "";
+    if (nextQuery === queryRef.current) return;
+    queryRef.current = nextQuery;
+    requestGateRef.current?.invalidate();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setQuery(nextQuery);
+    setResults([]);
+    setShowDropdown(false);
+    setActiveIndex(-1);
+    setIsSearching(false);
+    setSearchCompleted(false);
+  }, [brand.facebookPage]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -47,26 +82,49 @@ function CompanySearch({ brand, index, onSelect }: {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      requestGateRef.current?.invalidate();
+    };
   }, []);
 
   function handleSearch(value: string) {
+    queryRef.current = value;
     setQuery(value);
+    onQueryChange(index, value);
     setActiveIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (value.length < 2) { setResults([]); setShowDropdown(false); return; }
+    setResults([]);
+    setShowDropdown(false);
+    setSearchCompleted(false);
+    if (value.length < 2) {
+      requestGateRef.current?.invalidate();
+      setIsSearching(false);
+      return;
+    }
+
+    const request = requestGateRef.current!.begin();
 
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/companies?q=${encodeURIComponent(value)}`);
+        const res = await fetch(`/api/companies?q=${encodeURIComponent(value)}`, {
+          signal: request.signal,
+        });
         const data = await res.json();
+        if (!request.isCurrent()) return;
         setResults(data.results || []);
         setShowDropdown(true);
+        setSearchCompleted(true);
       } catch {
-        setResults([]);
+        if (request.isCurrent()) {
+          setResults([]);
+          setShowDropdown(false);
+          setSearchCompleted(true);
+        }
       } finally {
-        setIsSearching(false);
+        if (request.isCurrent()) setIsSearching(false);
       }
     }, 400);
   }
@@ -81,11 +139,7 @@ function CompanySearch({ brand, index, onSelect }: {
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
-      const company = results[activeIndex];
-      onSelect(index, company);
-      setQuery(company.name);
-      setShowDropdown(false);
-      setActiveIndex(-1);
+      selectCompany(results[activeIndex]);
     } else if (e.key === "Escape") {
       setShowDropdown(false);
       setActiveIndex(-1);
@@ -93,10 +147,16 @@ function CompanySearch({ brand, index, onSelect }: {
   }
 
   function selectCompany(company: CompanyResult) {
+    requestGateRef.current?.invalidate();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    queryRef.current = company.name;
     onSelect(index, company);
     setQuery(company.name);
+    setResults([]);
     setShowDropdown(false);
     setActiveIndex(-1);
+    setIsSearching(false);
+    setSearchCompleted(false);
   }
 
   return (
@@ -105,7 +165,7 @@ function CompanySearch({ brand, index, onSelect }: {
         htmlFor={inputId}
         className="block text-xs font-bold text-white-dim uppercase tracking-wide mb-1"
       >
-        Facebook Page <span className="text-white-dim/50 normal-case">(optional)</span>
+        Facebook Page <span className="text-white-dim/70 normal-case">(confirm before audit)</span>
       </label>
       <div className="relative">
         <input
@@ -161,6 +221,11 @@ function CompanySearch({ brand, index, onSelect }: {
           ))}
         </ul>
       )}
+      {searchCompleted && !isSearching && results.length === 0 && !brand.facebookPageId && (
+        <p role="status" className="mt-2 text-[10px] text-orange-accent font-geist-mono">
+          No Facebook Pages found. Try the exact Meta Page name before starting the audit.
+        </p>
+      )}
     </div>
   );
 }
@@ -176,12 +241,12 @@ export default function DashboardPage() {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [brands, setBrands] = useState<BrandConfig[]>([
-    { name: "", website: "" },
-    { name: "", website: "" },
-  ]);
+  const [brands, setBrands] = useState<BrandConfig[]>(createInitialBrands);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressIndeterminate, setProgressIndeterminate] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
+  const [finalizationStarted, setFinalizationStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState("");
   const [progressDetail, setProgressDetail] = useState("");
   const [pastReports, setPastReports] = useState<ReportSummary[]>([]);
@@ -249,15 +314,16 @@ function DashboardContent() {
   }
 
   function removeBrand(index: number) {
-    // F-025: keep at least one brand row, not two.
-    if (brands.length <= 1) { toast.error("At least one brand is required"); return; }
-    setBrands(brands.filter((_, i) => i !== index));
+    if (!canRemoveBrand(brands.length)) { toast.error("At least one brand is required"); return; }
+    setBrands(removeBrandAt(brands, index));
   }
 
   function updateBrand(index: number, field: keyof BrandConfig, value: string) {
-    const updated = [...brands];
-    updated[index] = { ...updated[index], [field]: value };
-    setBrands(updated);
+    setBrands(updateBrandField(brands, index, field, value));
+  }
+
+  function updateFacebookPage(index: number, value: string) {
+    setBrands(updateFacebookPageQuery(brands, index, value));
   }
 
   function selectCompany(index: number, company: CompanyResult) {
@@ -292,8 +358,17 @@ function DashboardContent() {
       return;
     }
 
+    const confirmationError = getFacebookConfirmationError(validBrands);
+    if (confirmationError) {
+      toast.error(confirmationError);
+      return;
+    }
+
     setIsAnalyzing(true);
     setProgress(0);
+    setProgressIndeterminate(false);
+    setCancelRequested(false);
+    setFinalizationStarted(false);
     setCurrentStep("Initializing audit...");
 
     const abortController = new AbortController();
@@ -321,44 +396,29 @@ function DashboardContent() {
 
       if (!response.ok || !response.body) throw new Error("Failed to start audit");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event: ProgressEvent = JSON.parse(line.slice(6));
-            if (event.type === "progress") {
-              setProgress(Math.min(event.progress, 100));
-              setCurrentStep(event.step);
-              setProgressDetail(event.detail || "");
-            } else if (event.type === "complete") {
-              setProgress(100);
-              setCurrentStep("Complete");
-              sessionStorage.setItem("auditResults", JSON.stringify(event.results));
-              toast.success("Brand DNA analysis complete");
-              router.push("/report");
-            } else if (event.type === "error") {
-              throw new Error(event.message);
-            }
-          } catch (e) {
-            if (e instanceof SyntaxError) continue;
-            throw e;
-          }
+      function handleEvent(event: ProgressEvent) {
+        if (event.type === "progress") {
+          setProgress(Math.min(event.progress, 100));
+          setProgressIndeterminate(event.indeterminate === true);
+          if (event.cancellable === false) setFinalizationStarted(true);
+          setCurrentStep(event.step);
+          setProgressDetail(event.detail || "");
+        } else if (event.type === "complete") {
+          setProgress(100);
+          setProgressIndeterminate(false);
+          setCurrentStep("Complete");
+          sessionStorage.setItem("auditResults", JSON.stringify(event.results));
+          toast.success("Brand DNA analysis complete");
+          router.push("/report");
+        } else if (event.type === "error") {
+          throw new Error(event.message);
         }
       }
+
+      await readAuditEventStream(response.body, handleEvent);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        toast.info("Audit cancelled. Tokens not charged.");
+        toast.info(AUDIT_CANCELLATION_MESSAGE);
       } else {
         toast.error(error instanceof Error ? error.message : "Audit failed");
       }
@@ -368,8 +428,11 @@ function DashboardContent() {
   }
 
   function cancelAudit() {
+    setCancelRequested(true);
     abortControllerRef.current?.abort();
   }
+
+  const auditStatusMessage = getAuditStatusMessage(finalizationStarted, cancelRequested);
 
   return (
     <div className="min-h-screen bg-black-ink">
@@ -435,14 +498,19 @@ function DashboardContent() {
                           />
                         </div>
                       </div>
-                      <CompanySearch brand={brand} index={i} onSelect={selectCompany} />
+                      <CompanySearch
+                        brand={brand}
+                        index={i}
+                        onSelect={selectCompany}
+                        onQueryChange={updateFacebookPage}
+                      />
                       {brand.facebookPageId && (
                         <p className="text-[10px] text-orange-accent font-geist-mono">
-                          Verified: Page ID {brand.facebookPageId}
+                          Confirmed: {brand.facebookPage} · Page ID {brand.facebookPageId}
                         </p>
                       )}
                     </div>
-                    {brands.length > 2 && (
+                    {canRemoveBrand(brands.length) && (
                       <button
                         onClick={() => removeBrand(i)}
                         className="mt-6 p-2 text-white-dim hover:text-red-hot transition-colors"
@@ -495,18 +563,26 @@ function DashboardContent() {
               <div
                 role="status"
                 aria-live="polite"
-                aria-label={`Audit progress: ${Math.min(Math.round(progress), 100)}%. ${currentStep}`}
+                aria-label={progressIndeterminate
+                  ? `Audit in progress. ${currentStep}`
+                  : `Audit progress: ${Math.min(Math.round(progress), 100)}%. ${currentStep}`}
                 className="mb-6"
               >
                 <div className="flex justify-between text-xs text-white-dim uppercase tracking-wide mb-2">
                   <span>{currentStep}</span>
-                  <span className="tabular-nums font-geist-mono">{Math.min(Math.round(progress), 100)}%</span>
+                  <span className="tabular-nums font-geist-mono">
+                    {progressIndeterminate ? "In progress" : `${Math.min(Math.round(progress), 100)}%`}
+                  </span>
                 </div>
                 <div className="h-2 bg-black-card border border-border-subtle overflow-hidden">
-                  <div
-                    className="h-full bg-red-hot motion-safe:transition-all motion-safe:duration-500"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
+                  {progressIndeterminate ? (
+                    <div className="h-full w-full bg-red-hot/40 motion-safe:animate-pulse" />
+                  ) : (
+                    <div
+                      className="h-full bg-red-hot motion-safe:transition-all motion-safe:duration-500"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  )}
                 </div>
                 {progressDetail && (
                   <p className="text-xs text-white-dim mt-2 font-geist-mono">{progressDetail}</p>
@@ -515,17 +591,23 @@ function DashboardContent() {
               <div className="flex items-center gap-2 justify-center">
                 <Loader2 className="h-5 w-5 animate-spin text-red-hot" aria-hidden="true" />
                 <span className="text-sm text-white-muted">
-                  {progress < 75 ? "Collecting intelligence..." : "Generating strategic analysis..."}
+                  {getAuditActivityLabel(progress, finalizationStarted)}
                 </span>
               </div>
               <div className="mt-6 flex justify-center">
-                <button
-                  onClick={cancelAudit}
-                  className="flex items-center gap-2 text-white-dim hover:text-red-hot text-xs font-bold uppercase tracking-wide transition-colors border border-border-subtle px-4 py-2 hover:border-red-hot"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Cancel Audit
-                </button>
+                {!finalizationStarted && !cancelRequested ? (
+                  <button
+                    onClick={cancelAudit}
+                    className="flex items-center gap-2 text-white-dim hover:text-red-hot text-xs font-bold uppercase tracking-wide transition-colors border border-border-subtle px-4 py-2 hover:border-red-hot"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancel Audit
+                  </button>
+                ) : (
+                  <p className="text-xs text-white-dim text-center font-geist-mono">
+                    {auditStatusMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -579,7 +661,7 @@ function DashboardContent() {
                             {Math.round(report.duration / 1000)}s
                           </span>
                           <span className="text-[10px] text-orange-accent font-geist-mono">
-                            {report.brands.length} brands
+                            {formatBrandCount(report.brands.length)}
                           </span>
                         </div>
                       </div>
