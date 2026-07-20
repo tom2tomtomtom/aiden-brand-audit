@@ -15,7 +15,6 @@ function getPublicUrl(request: NextRequest): string {
 }
 
 const GW_RT_COOKIE_NAME = 'aiden-gw-rt';
-const RT_MAX_AGE = 30 * 24 * 60 * 60;
 
 async function refreshFromGatewayRT(
   request: NextRequest
@@ -23,16 +22,22 @@ async function refreshFromGatewayRT(
   const rt = request.cookies.get(GW_RT_COOKIE_NAME)?.value;
   if (!rt) return null;
   try {
-    const res = await fetch(`${GATEWAY_URL}/api/auth/refresh`, {
+    const res = await fetch(`${GATEWAY_URL}/api/auth/access`, {
       method: 'POST',
       headers: { Cookie: `${GW_RT_COOKIE_NAME}=${rt}` },
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data.jwt || !data.refreshToken) return null;
+    if (!data.jwt) return null;
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-middleware-auth-verified', '1');
+    requestHeaders.set('cookie', [
+      ...request.cookies.getAll()
+        .filter(({ name }) => name !== GW_COOKIE_NAME)
+        .map(({ name, value }) => `${name}=${value}`),
+      `${GW_COOKIE_NAME}=${data.jwt}`,
+    ].join('; '));
     const response = NextResponse.next({ request: { headers: requestHeaders } });
 
     response.cookies.set(GW_COOKIE_NAME, data.jwt, {
@@ -43,15 +48,6 @@ async function refreshFromGatewayRT(
       sameSite: 'lax',
       maxAge: 30 * 60,
     });
-    response.cookies.set(GW_RT_COOKIE_NAME, data.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      domain: COOKIE_DOMAIN,
-      path: '/',
-      sameSite: 'lax',
-      maxAge: RT_MAX_AGE,
-    });
-
     return response;
   } catch {
     return null;
