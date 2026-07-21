@@ -132,7 +132,7 @@ function RegisterForm() {
         </form>
 
         <p className="text-center text-xs text-white-dim mt-6 uppercase tracking-wide">
-          Free plan includes 2 audits per month
+          50 free tokens on sign-up
         </p>
       </div>
     </div>

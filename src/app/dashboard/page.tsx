@@ -389,8 +389,8 @@ function DashboardContent() {
           const many = noAds.length > 1;
           const proceed = window.confirm(
             `No ads found in the Meta Ad Library for: ${noAds.join(", ")}.\n\n` +
-              `${many ? "These brands" : "This brand"} will still cost ${perBrand} tokens ` +
-              `${many ? "each" : ""} with little to show in Ad Intelligence.\n\n` +
+              `${many ? "These brands" : "This brand"} will still cost ${perBrand} tokens` +
+              `${many ? " each" : ""} with little to show in Ad Intelligence.\n\n` +
               `OK to run the audit anyway, or Cancel to go back and remove ` +
               `${many ? "them" : "it"}.`,
           );
