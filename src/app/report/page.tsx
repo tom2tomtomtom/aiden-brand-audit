@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Share2 } from "lucide-react";
+import { ArrowLeft, Clock, Share2, Link2Off, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditResults } from "@/lib/types";
 import { normalizeAuditResults } from "@/lib/normalize";
@@ -23,6 +23,30 @@ export default function ReportPage() {
   const router = useRouter();
   const [results, setResults] = useState<AuditResults | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
+  const [shareRevoked, setShareRevoked] = useState(false);
+  const [shareUpdating, setShareUpdating] = useState(false);
+
+  async function toggleRevoke(revoke: boolean) {
+    if (!results?.id) return;
+    setShareUpdating(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: results.id, action: revoke ? "revoke" : "unrevoke" }),
+      });
+      if (res.ok) {
+        setShareRevoked(revoke);
+        toast.success(revoke ? "Share link revoked" : "Share link restored");
+      } else {
+        toast.error("Failed to update share link");
+      }
+    } catch {
+      toast.error("Failed to update share link");
+    } finally {
+      setShareUpdating(false);
+    }
+  }
 
   useEffect(() => {
     const stored = sessionStorage.getItem("auditResults");
@@ -101,17 +125,34 @@ export default function ReportPage() {
                 {formatBrandCount(results.brands.length)} analyzed
               </span>
               {results.id && (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/report/${results.id}`);
-                    toast.success("Share link copied");
-                  }}
-                  aria-label="Copy share link"
-                  className="flex items-center gap-2 bg-black-card text-white-muted px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all"
-                >
-                  <Share2 className="h-3 w-3" />
-                  <span className="hidden sm:inline">Share</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      if (shareRevoked) {
+                        toast.error("Share link is revoked. Restore it to share again.");
+                        return;
+                      }
+                      navigator.clipboard.writeText(`${window.location.origin}/report/${results.id}`);
+                      toast.success("Share link copied");
+                    }}
+                    aria-label="Copy share link"
+                    disabled={shareRevoked}
+                    className="flex items-center gap-2 bg-black-card text-white-muted px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-orange-accent transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border-subtle"
+                  >
+                    <Share2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">{shareRevoked ? "Revoked" : "Share"}</span>
+                  </button>
+                  <button
+                    onClick={() => toggleRevoke(!shareRevoked)}
+                    disabled={shareUpdating}
+                    aria-label={shareRevoked ? "Restore share link" : "Revoke share link"}
+                    title={shareRevoked ? "Restore share link" : "Revoke share link"}
+                    className="flex items-center gap-2 bg-black-card text-white-muted px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-wide border-2 border-border-subtle hover:border-red-hot transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {shareRevoked ? <Link2 className="h-3 w-3" /> : <Link2Off className="h-3 w-3" />}
+                    <span className="hidden sm:inline">{shareRevoked ? "Restore" : "Revoke"}</span>
+                  </button>
+                </>
               )}
               <ExportPdfButton results={results} />
             </div>

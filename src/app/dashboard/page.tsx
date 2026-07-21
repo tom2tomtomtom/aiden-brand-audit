@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Clock, FileText, ArrowRight, XCircle } from "lucide-react";
+import { Loader2, Plus, X, Zap, Eye, BarChart3, Brain, Search, CheckCircle, Clock, FileText, ArrowRight, XCircle, Link2Off, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import type { BrandConfig, ProgressEvent } from "@/lib/types";
 import { estimateAuditCost } from "@/lib/tokens";
@@ -30,6 +30,16 @@ interface ReportSummary {
   brands: string[];
   created_at: string;
   duration: number;
+  revoked_at?: string | null;
+  share_expires_at?: string | null;
+}
+
+function getShareStatus(report: ReportSummary): "active" | "revoked" | "expired" {
+  if (report.revoked_at) return "revoked";
+  if (report.share_expires_at && Date.now() > new Date(report.share_expires_at).getTime()) {
+    return "expired";
+  }
+  return "active";
 }
 
 interface CompanyResult {
@@ -308,6 +318,24 @@ function DashboardContent() {
       }
     } catch {
       toast.error("Failed to delete report");
+    }
+  }
+
+  async function setShareRevoked(id: string, revoke: boolean) {
+    try {
+      const res = await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: revoke ? "revoke" : "unrevoke" }),
+      });
+      if (res.ok) {
+        toast.success(revoke ? "Share link revoked" : "Share link restored");
+        await loadReports(reportsPage);
+      } else {
+        toast.error("Failed to update share link");
+      }
+    } catch {
+      toast.error("Failed to update share link");
     }
   }
 
@@ -675,7 +703,10 @@ function DashboardContent() {
           ) : (
             <>
               <div className="space-y-2">
-                {pastReports.map((report) => (
+                {pastReports.map((report) => {
+                  const shareStatus = getShareStatus(report);
+                  const isRevoked = !!report.revoked_at;
+                  return (
                   <div
                     key={report.id}
                     className="flex items-center gap-2 bg-black-deep border-2 border-border-subtle hover:border-red-hot transition-all group"
@@ -703,10 +734,27 @@ function DashboardContent() {
                           <span className="text-[10px] text-orange-accent font-geist-mono">
                             {formatBrandCount(report.brands.length)}
                           </span>
+                          {shareStatus !== "active" && (
+                            <span className="text-[10px] text-red-hot font-geist-mono uppercase tracking-wide border border-red-hot px-1.5 py-0.5">
+                              {shareStatus === "revoked" ? "Link revoked" : "Link expired"}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <ArrowRight className="h-4 w-4 text-white-dim group-hover:text-red-hot transition-colors flex-shrink-0 mr-2" />
                     </Link>
+                    <button
+                      onClick={() => setShareRevoked(report.id, !isRevoked)}
+                      aria-label={
+                        isRevoked
+                          ? `Restore share link: ${report.brands.join(" vs ")}`
+                          : `Revoke share link: ${report.brands.join(" vs ")}`
+                      }
+                      title={isRevoked ? "Restore share link" : "Revoke share link"}
+                      className="flex-shrink-0 p-4 text-white-dim hover:text-red-hot transition-colors border-l border-border-subtle"
+                    >
+                      {isRevoked ? <Link2 className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm("Delete this report? This cannot be undone.")) {
@@ -719,7 +767,8 @@ function DashboardContent() {
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {reportsTotal > PAGE_SIZE && (
