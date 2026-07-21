@@ -20,6 +20,20 @@ const platformConfig = {
   reddit: { label: "Reddit", color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/30" },
 };
 
+const PLATFORM_ORDER = ["tiktok", "instagram", "reddit"] as const;
+
+// Label the sample by the sources actually captured, not a fixed list. A brand
+// whose posts are all TikTok should read "from TikTok", not "TikTok, Instagram
+// & Reddit".
+export function describeSources(posts: { platform: string }[]): string {
+  const present = PLATFORM_ORDER.filter((p) => posts.some((post) => post.platform === p));
+  const labels = present.map((p) => platformConfig[p].label);
+  if (labels.length === 0) return "social media";
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")} & ${labels[labels.length - 1]}`;
+}
+
 const sentimentColors = {
   positive: { text: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/30", dot: "bg-emerald-400" },
   negative: { text: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/30", dot: "bg-red-400" },
@@ -405,7 +419,7 @@ export function SocialSentiment({ brands }: { brands: BrandData[] }) {
                     {s.brandPerception}
                   </p>
                   <p className="text-[10px] text-white-dim mt-2 text-center font-geist-mono">
-                    Based on {s.totalAnalyzed} organic posts from TikTok, Instagram & Reddit
+                    Based on {s.totalAnalyzed} organic posts from {describeSources(allPosts)}
                   </p>
                 </div>
 

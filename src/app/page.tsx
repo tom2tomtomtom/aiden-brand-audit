@@ -46,7 +46,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-20">
           <h2 className="text-5xl sm:text-7xl font-bold tracking-tight text-red-hot uppercase">
             Competitive Brand<br />Intelligence
@@ -76,7 +76,7 @@ export default async function HomePage() {
           </div>
 
           <p className="mt-4 text-xs text-white-dim uppercase tracking-wide">
-            2 free audits per month. No credit card required.
+            50 free tokens on sign-up. No credit card required.
           </p>
         </div>
 
@@ -113,7 +113,7 @@ export default async function HomePage() {
             Create Free Account <ArrowRight className="h-4 w-4" />
           </a>
         </div>
-      </main>
+      </div>
 
       <footer className="border-t-2 border-red-hot bg-black-deep mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

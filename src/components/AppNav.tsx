@@ -37,6 +37,10 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
+  // null = auth state not yet known; false = confirmed signed out (401/403);
+  // true = confirmed signed in. Public pages (e.g. shared reports) render a
+  // signed-out nav so visitors never see Sign out / Back to Hub / Apps.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,7 +50,13 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
           credentials: 'include',
           cache: 'no-store',
         })
-        return response.ok ? response.json() : null
+        if (response.status === 401 || response.status === 403) {
+          setSignedIn(false)
+          return null
+        }
+        if (!response.ok) return null
+        setSignedIn(true)
+        return response.json()
       },
       applyBalance(d) {
         if (typeof d.email === 'string') setEmail(d.email)
@@ -103,7 +113,10 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
   // Publish the rendered nav height so each app can offset its own pinned chrome
   // (handles flex-wrap on narrow widths instead of a hardcoded guess).
   useEffect(() => {
-    const el = wrapRef.current?.closest('.aiden-nav') as HTMLElement | null
+    // Target the header directly (it always renders); the apps wrapper is now
+    // conditional on auth state, and the ResizeObserver tracks height across
+    // signed-in/out transitions.
+    const el = document.querySelector('.aiden-nav') as HTMLElement | null
     if (!el) return
     const setVar = () =>
       document.documentElement.style.setProperty('--aiden-nav-h', `${el.offsetHeight}px`)
@@ -122,46 +135,54 @@ export default function AppNav({ appName, tagline, currentApp }: AppNavProps) {
       </a>
       {tagline ? <span className="aiden-nav-tag">{tagline}</span> : null}
       <span className="aiden-nav-spacer" />
-      {email ? <span className="aiden-nav-tag">{email}</span> : null}
-      {balance !== null ? <span className="aiden-nav-tag">{balance} tokens</span> : null}
-      <div className="aiden-nav-apps" ref={wrapRef}>
-        <button
-          type="button"
-          className="aiden-nav-appsbtn"
-          aria-haspopup="true"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          title="AIDEN apps"
-        >
-          <span className="aiden-nav-waffle">
-            {Array.from({ length: 9 }).map((_, i) => <i key={i} />)}
-          </span>
-          Apps
-        </button>
-        <div className={`aiden-nav-menu${open ? ' aiden-nav-open' : ''}`} role="menu">
-          {AIDEN_APPS.map((a) =>
-            a.name === currentApp ? (
-              <a key={a.name} className="aiden-nav-current" aria-current="page">
-                <span className="aiden-nav-dot" style={{ background: a.color }} />
-                {a.name}
-              </a>
-            ) : (
-              <a key={a.name} href={a.url}>
-                <span className="aiden-nav-dot" style={{ background: a.color }} />
-                {a.name}
-              </a>
-            ),
-          )}
-        </div>
-      </div>
-      <a className="aiden-nav-hub" href={`${GATEWAY}/dashboard`}>Back to Hub</a>
-      <button
-        type="button"
-        className="aiden-nav-signout"
-        onClick={() => { window.location.href = `${GATEWAY}/auth/logout` }}
-      >
-        Sign out
-      </button>
+      {signedIn && email ? <span className="aiden-nav-tag">{email}</span> : null}
+      {signedIn && balance !== null ? <span className="aiden-nav-tag">{balance} tokens</span> : null}
+      <nav className="aiden-nav-actions" aria-label="AIDEN apps">
+        {signedIn === false ? (
+          <a className="aiden-nav-hub" href={`${GATEWAY}/login`}>Sign in</a>
+        ) : signedIn === true ? (
+          <>
+            <div className="aiden-nav-apps" ref={wrapRef}>
+              <button
+                type="button"
+                className="aiden-nav-appsbtn"
+                aria-haspopup="true"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+                title="AIDEN apps"
+              >
+                <span className="aiden-nav-waffle">
+                  {Array.from({ length: 9 }).map((_, i) => <i key={i} />)}
+                </span>
+                Apps
+              </button>
+              <div className={`aiden-nav-menu${open ? ' aiden-nav-open' : ''}`} role="menu">
+                {AIDEN_APPS.map((a) =>
+                  a.name === currentApp ? (
+                    <a key={a.name} className="aiden-nav-current" aria-current="page">
+                      <span className="aiden-nav-dot" style={{ background: a.color }} />
+                      {a.name}
+                    </a>
+                  ) : (
+                    <a key={a.name} href={a.url}>
+                      <span className="aiden-nav-dot" style={{ background: a.color }} />
+                      {a.name}
+                    </a>
+                  ),
+                )}
+              </div>
+            </div>
+            <a className="aiden-nav-hub" href={`${GATEWAY}/dashboard`}>Back to Hub</a>
+            <button
+              type="button"
+              className="aiden-nav-signout"
+              onClick={() => { window.location.href = `${GATEWAY}/auth/logout` }}
+            >
+              Sign out
+            </button>
+          </>
+        ) : null}
+      </nav>
     </header>
   )
 }
@@ -174,6 +195,7 @@ const AIDEN_NAV_CSS = `
 .aiden-nav-app { font-family:'Archivo Narrow',sans-serif; font-weight:400; letter-spacing:.02em; font-size:20px; color:#9a9aa2; }
 .aiden-nav-tag { color:#9a9aa2; font-size:13px; }
 .aiden-nav-spacer { flex:1; }
+.aiden-nav-actions { display:flex; align-items:center; gap:12px; }
 .aiden-nav-apps { position:relative; }
 .aiden-nav-appsbtn { display:flex; align-items:center; gap:7px; background:transparent; border:1px solid #2a2a30; color:#e6e6ea; border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer; }
 .aiden-nav-appsbtn:hover { border-color:#3a3a42; }

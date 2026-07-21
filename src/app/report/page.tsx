@@ -142,7 +142,7 @@ export default function ReportPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-fadeIn">
           {activeSection === "overview" && (
             <div className="space-y-8">
@@ -158,7 +158,7 @@ export default function ReportPage() {
           {activeSection === "strategy" && <StrategicAnalysis analysis={results.strategicAnalysis} brands={results.brands} />}
           {activeSection === "matrix" && <CompetitiveMatrix analysis={results.strategicAnalysis} brands={results.brands} />}
         </div>
-      </main>
+      </div>
 
       <footer className="border-t-2 border-red-hot bg-black-deep mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

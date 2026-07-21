@@ -367,6 +367,40 @@ function DashboardContent() {
       return;
     }
 
+    // Pre-pay warning: a brand with no ads in the Meta Ad Library is still
+    // billed the full per-brand cost. Surface it so the user can back out
+    // before paying. Best-effort: a failed check never blocks the audit.
+    try {
+      const checkRes = await fetch("/api/companies/ads-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brands: validBrands.map((b) => ({
+            name: b.name,
+            website: b.website,
+            facebookPageId: b.facebookPageId,
+          })),
+        }),
+      });
+      if (checkRes.ok) {
+        const { noAds } = await checkRes.json();
+        if (Array.isArray(noAds) && noAds.length > 0) {
+          const perBrand = estimateAuditCost(1).perBrand;
+          const many = noAds.length > 1;
+          const proceed = window.confirm(
+            `No ads found in the Meta Ad Library for: ${noAds.join(", ")}.\n\n` +
+              `${many ? "These brands" : "This brand"} will still cost ${perBrand} tokens ` +
+              `${many ? "each" : ""} with little to show in Ad Intelligence.\n\n` +
+              `OK to run the audit anyway, or Cancel to go back and remove ` +
+              `${many ? "them" : "it"}.`,
+          );
+          if (!proceed) return;
+        }
+      }
+    } catch {
+      /* Pre-check is advisory only; never block the audit on its failure. */
+    }
+
     setIsAnalyzing(true);
     setProgress(0);
     setProgressIndeterminate(false);
@@ -442,7 +476,7 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-black-ink">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex flex-wrap justify-center gap-4 mb-12">
           {[
             { icon: Eye, label: "Ad Library Scraping" },
@@ -712,7 +746,7 @@ function DashboardContent() {
             </>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
